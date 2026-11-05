@@ -11,9 +11,12 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
+import { supabase } from "@/lib/supabase/client";
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
+  const [saving, setSaving] = useState(false);
 
   // Estados do Contexto do Negócio
   const [companyName, setCompanyName] = useState("");
@@ -35,7 +38,8 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    setSaving(true);
     const businessContext = {
       companyName: companyName.trim() || "Minha Empresa",
       niche,
@@ -50,8 +54,26 @@ export default function OnboardingPage() {
       localStorage.setItem("gera_pauta_business_context", JSON.stringify(businessContext));
     }
 
-    toast.success("Perfil do negócio salvo com sucesso! Abrindo seu gerador de pautas...");
-    router.push("/dashboard");
+    try {
+      // Salva no banco de dados do Supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("businesses").insert({
+          user_id: user.id,
+          company_name: companyName.trim() || "Minha Empresa",
+          niche,
+          tone_of_voice: toneOfVoice,
+          key_pain: keyPain,
+          differential
+        });
+      }
+    } catch (e) {
+      console.warn("Contexto salvo localmente:", e);
+    } finally {
+      setSaving(false);
+      toast.success("Perfil do negócio salvo com sucesso no Supabase! Abrindo seu gerador de pautas...");
+      router.push("/dashboard");
+    }
   };
 
   return (

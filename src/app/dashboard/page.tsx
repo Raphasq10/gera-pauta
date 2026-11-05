@@ -34,8 +34,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { INITIAL_PERSONAS, INITIAL_PITCHES, PersonaData, PitchContent } from "@/data/mockData";
+import { supabase } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>("generator");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -64,8 +67,74 @@ export default function DashboardPage() {
   const [usedPitches, setUsedPitches] = useState<number>(1);
   const maxFreePitches = 5;
   const [userApiKey, setUserApiKey] = useState<string>("");
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    async function loadSupabaseData() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUserId(user.id);
+
+          // 1. Carrega Perfil do Usuário
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", user.id)
+            .single();
+
+          if (profile) {
+            setUsedPitches(profile.used_pitches || 0);
+            if (profile.user_api_key) setUserApiKey(profile.user_api_key);
+          }
+
+          // 2. Carrega Negócio Cadastrado
+          const { data: business } = await supabase
+            .from("businesses")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (business) {
+            if (business.company_name) setCompanyName(business.company_name);
+            if (business.niche) setNiche(business.niche);
+            if (business.tone_of_voice) setToneOfVoice(business.tone_of_voice);
+          }
+
+          // 3. Carrega Histórico de Pautas do Banco
+          const { data: dbPitches } = await supabase
+            .from("pitches")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false });
+
+          if (dbPitches && dbPitches.length > 0) {
+            const mappedPitches: PitchContent[] = dbPitches.map((p) => ({
+              id: p.id,
+              version: 1,
+              createdAt: new Date(p.created_at).toLocaleDateString("pt-BR"),
+              personaId: "p1",
+              personaName: "Público-Alvo",
+              channel: p.channel as any,
+              mote: p.mote,
+              headlineArte: p.headline_arte,
+              headlineArteAlt: p.headline_arte_alt,
+              legenda: p.legenda,
+              formato: p.formato,
+              justificativaFormato: p.justificativa_formato
+            }));
+            setPitches(mappedPitches);
+          }
+        }
+      } catch (err) {
+        console.warn("Carregando modo local:", err);
+      }
+    }
+
+    loadSupabaseData();
+
     if (typeof window !== "undefined") {
       const savedContext = localStorage.getItem("gera_pauta_business_context");
       if (savedContext) {
@@ -79,17 +148,6 @@ export default function DashboardPage() {
 
       const savedKey = localStorage.getItem("gera_pauta_byok_key");
       if (savedKey) setUserApiKey(savedKey);
-
-      const savedPitches = localStorage.getItem("gera_pauta_history");
-      if (savedPitches) {
-        try {
-          const parsedList = JSON.parse(savedPitches);
-          if (Array.isArray(parsedList) && parsedList.length > 0) {
-            setPitches(parsedList);
-            setUsedPitches(Math.min(parsedList.length, maxFreePitches));
-          }
-        } catch {}
-      }
     }
   }, []);
 
@@ -102,7 +160,7 @@ export default function DashboardPage() {
     setTimeout(() => setCopiedId(null), 2500);
   };
 
-  const handleSaveApiKey = () => {
+  const handleSaveApiKey = async () => {
     if (!userApiKey.trim()) {
       toast.error("Por favor, cole sua chave do Google AI Studio.");
       return;
@@ -110,7 +168,24 @@ export default function DashboardPage() {
     if (typeof window !== "undefined") {
       localStorage.setItem("gera_pauta_byok_key", userApiKey.trim());
     }
-    toast.success("Chave de IA configurada com sucesso! Potencializador ativado.");
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("profiles")
+          .update({ user_api_key: userApiKey.trim() })
+          .eq("id", user.id);
+      }
+    } catch {}
+
+    toast.success("Chave de IA configurada com sucesso no Supabase! Potencializador ativado.");
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success("Você saiu da sua conta.");
+    router.push("/login");
   };
 
   const handleGenerate = async () => {
@@ -154,8 +229,33 @@ export default function DashboardPage() {
           return updated;
         });
 
-        setUsedPitches((prev) => Math.min(prev + enrichedPitches.length, maxFreePitches));
-        toast.success(`✨ ${enrichedPitches.length} pautas contextualizadas criadas com sucesso!`);
+        const newUsed = Math.min(usedPitches + enrichedPitches.length, maxFreePitches);
+        setUsedPitches(newUsed);
+
+        // Persiste as novas pautas geradas no banco do Supabase
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const rowsToInsert = enrichedPitches.map((p) => ({
+              user_id: user.id,
+              channel: p.channel,
+              goal,
+              mote: p.mote,
+              headline_arte: p.headlineArte,
+              headline_arte_alt: p.headlineArteAlt,
+              legenda: p.legenda,
+              formato: p.formato,
+              justificativa_formato: p.justificativaFormato
+            }));
+
+            await supabase.from("pitches").insert(rowsToInsert);
+            await supabase.from("profiles").update({ used_pitches: newUsed }).eq("id", user.id);
+          }
+        } catch (dbErr) {
+          console.warn("Pautas salvas em cache local:", dbErr);
+        }
+
+        toast.success(`✨ ${enrichedPitches.length} pautas contextualizadas criadas e salvas no Supabase!`);
       } else {
         throw new Error(data.error || "Erro na geração");
       }
@@ -209,16 +309,15 @@ export default function DashboardPage() {
               Fazer Upgrade PRO
             </Button>
 
-            <Link href="/login">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-[#E5E5E5]/70 hover:text-white hover:bg-[#000000]/40 text-xs h-8 px-2 rounded-lg cursor-pointer"
-                title="Sair da conta"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </Button>
-            </Link>
+            <Button
+              onClick={handleLogout}
+              variant="ghost"
+              size="sm"
+              className="text-[#E5E5E5]/70 hover:text-white hover:bg-[#000000]/40 text-xs h-8 px-2 rounded-lg cursor-pointer"
+              title="Sair da conta"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </Button>
           </div>
         </div>
       </header>

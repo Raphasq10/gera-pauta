@@ -3,12 +3,13 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles, ArrowRight, ShieldCheck, Mail, Lock, CheckCircle2 } from "lucide-react";
+import { Sparkles, ArrowRight, ShieldCheck, Mail, Lock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,25 +34,76 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    // Simula autenticação com feedback visual imediato
-    setTimeout(() => {
-      setLoading(false);
-      toast.success(isSignUp ? "Conta criada com sucesso! Bem-vindo(a)." : "Login realizado com sucesso!");
-      
-      if (typeof window !== "undefined") {
-        localStorage.setItem("gera_pauta_user_email", email);
-        if (companyName) {
-          localStorage.setItem("gera_pauta_company_name", companyName);
-        }
-      }
-
-      // Se for novo cadastro, vai para o onboarding do negócio; se já tem conta, vai pro dashboard
+    try {
       if (isSignUp) {
+        // CADASTRO NO SUPABASE AUTH
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            data: {
+              company_name: companyName.trim() || undefined,
+              full_name: companyName.trim() || undefined
+            }
+          }
+        });
+
+        if (error) {
+          toast.error(error.message || "Falha ao criar conta. Tente novamente.");
+          return;
+        }
+
+        toast.success("Conta criada com sucesso no Supabase! Bem-vindo(a).");
+        
+        if (typeof window !== "undefined") {
+          localStorage.setItem("gera_pauta_user_email", email.trim());
+          if (companyName) {
+            localStorage.setItem("gera_pauta_company_name", companyName.trim());
+          }
+        }
+
         router.push("/onboarding");
       } else {
+        // LOGIN NO SUPABASE AUTH
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password
+        });
+
+        if (error) {
+          toast.error(error.message === "Invalid login credentials" 
+            ? "E-mail ou senha incorretos." 
+            : error.message);
+          return;
+        }
+
+        toast.success("Login realizado com sucesso!");
+        
+        if (typeof window !== "undefined") {
+          localStorage.setItem("gera_pauta_user_email", email.trim());
+        }
+
         router.push("/dashboard");
       }
-    }, 800);
+    } catch (err: any) {
+      toast.error("Erro inesperado na autenticação. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: typeof window !== "undefined" ? `${window.location.origin}/dashboard` : undefined
+        }
+      });
+      if (error) toast.error(error.message);
+    } catch (err: any) {
+      toast.error("Erro ao iniciar login com Google.");
+    }
   };
 
   return (
@@ -125,7 +177,15 @@ export default function LoginPage() {
               {!isSignUp && (
                 <button
                   type="button"
-                  onClick={() => toast.info("Link de redefinição enviado para o e-mail informado.")}
+                  onClick={async () => {
+                    if (!email) {
+                      toast.error("Digite seu e-mail no campo acima para recuperar a senha.");
+                      return;
+                    }
+                    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+                    if (error) toast.error(error.message);
+                    else toast.success("Link de redefinição de senha enviado para seu e-mail!");
+                  }}
                   className="text-[11px] text-[#FCA311] hover:underline"
                 >
                   Esqueceu a senha?
@@ -154,7 +214,9 @@ export default function LoginPage() {
             className="w-full bg-[#FCA311] hover:bg-[#FCA311]/90 text-black font-bold h-11 text-sm rounded-xl transition-all shadow-lg shadow-[#FCA311]/20 cursor-pointer mt-2"
           >
             {loading ? (
-              "Processando..."
+              <span className="flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin" /> Conectando ao Supabase...
+              </span>
             ) : isSignUp ? (
               <span className="flex items-center justify-center gap-2">
                 Criar Conta Gratuita <ArrowRight className="w-4 h-4" />
@@ -178,10 +240,7 @@ export default function LoginPage() {
         {/* Botão Google OAuth */}
         <Button
           type="button"
-          onClick={() => {
-            toast.info("Conexão OAuth Google pronta para ativar com as credenciais do Supabase.");
-            router.push("/dashboard");
-          }}
+          onClick={handleGoogleLogin}
           variant="outline"
           className="w-full border-[#E5E5E5]/20 bg-[#000000]/40 text-white hover:bg-[#000000] hover:text-[#FCA311] h-11 rounded-xl text-xs font-semibold cursor-pointer gap-2"
         >
@@ -237,7 +296,7 @@ export default function LoginPage() {
       {/* Badge de Conformidade */}
       <div className="flex items-center gap-1.5 text-xs text-[#E5E5E5]/50 mt-6">
         <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-        <span>Ambiente seguro com criptografia de ponta a ponta</span>
+        <span>Autenticação oficial protegida pelo Supabase</span>
       </div>
     </div>
   );
