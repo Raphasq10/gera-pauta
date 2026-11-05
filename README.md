@@ -1,4 +1,4 @@
-# 🚀 Gera Pauta (SaaS B2B Multi-tenant)
+# 🚀 Gera Pauta
 
 > **Gerador Inteligente de Pautas para Redes Sociais contextualizado para Pequenos Negócios, Profissionais Liberais e Agências.**
 

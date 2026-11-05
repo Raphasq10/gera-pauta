@@ -1,5 +1,5 @@
 /**
- * Tipagens do Modelo Comercial — Gera Pauta (SaaS B2B / Pequenos Negócios)
+ * Tipagens do Modelo Comercial — Gera Pauta (Pequenos Negócios & Agências)
  */
 
 export type SocialNetwork = "instagram" | "linkedin" | "tiktok" | "whatsapp";

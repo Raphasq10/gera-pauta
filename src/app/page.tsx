@@ -129,9 +129,6 @@ export default function Home() {
                 <h1 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1.5">
                   Gera Pauta
                 </h1>
-                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] py-0 px-2 font-mono">
-                  SaaS B2B
-                </Badge>
               </div>
               <p className="text-[11px] text-slate-400">
                 Gerador de Pautas Contextualizadas para Redes Sociais • Pequenos Negócios & Agências
