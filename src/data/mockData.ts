@@ -1,13 +1,16 @@
 export interface PersonaData {
   id: string;
   name: string;
-  category: "estetica" | "gastronomia" | "servicos" | "saude" | "geral";
+  category: "estetica" | "gastronomia" | "servicos" | "saude" | "geral" | "professores" | "alunos" | "comunidade" | "empresarios" | string;
   role: string;
   count?: number;
+  pctOfAdults?: number;
   avgAge?: number;
   genderPct?: string;
   topInterests: { label: string; pct: number }[];
   topGoals: { label: string; pct: number }[];
+  transport?: { label: string; pct: number }[];
+  topLocations?: string[];
   keyPain: string;
   tone: string;
   suggestedFormats: string[];
@@ -15,9 +18,10 @@ export interface PersonaData {
 
 export interface BusinessUpdate {
   id: string;
-  type: "promocao" | "lancamento" | "dica" | "aviso" | "institucional";
+  type: "promocao" | "lancamento" | "dica" | "aviso" | "institucional" | "speaker" | "show" | "release" | "world" | "logistics" | string;
   title: string;
-  category: string;
+  category?: string;
+  world?: string;
   dateOrTime?: string;
   summary: string;
 }

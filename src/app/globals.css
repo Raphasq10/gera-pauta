@@ -5,6 +5,12 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --color-brand-black: #000000;
+  --color-brand-prussian: #14213D;
+  --color-brand-gold: #FCA311;
+  --color-brand-alabaster: #E5E5E5;
+  --color-brand-white: #FFFFFF;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -49,72 +55,67 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #000000;
+  --foreground: #FFFFFF;
+  --card: #14213D;
+  --card-foreground: #FFFFFF;
+  --popover: #14213D;
+  --popover-foreground: #FFFFFF;
+  --primary: #FCA311;
+  --primary-foreground: #000000;
+  --secondary: #1F2E4D;
+  --secondary-foreground: #FFFFFF;
+  --muted: #1A2845;
+  --muted-foreground: #E5E5E5;
+  --accent: #FCA311;
+  --accent-foreground: #000000;
+  --destructive: #EF4444;
+  --border: rgba(229, 229, 229, 0.15);
+  --input: rgba(229, 229, 229, 0.2);
+  --ring: #FCA311;
+  --radius: 0.75rem;
+  --chart-1: #FCA311;
+  --chart-2: #14213D;
+  --chart-3: #E5E5E5;
+  --chart-4: #FFFFFF;
+  --chart-5: #000000;
+  --sidebar: #14213D;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #FCA311;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #1F2E4D;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(229, 229, 229, 0.15);
+  --sidebar-ring: #FCA311;
 }
 
 .dark {
-  --background: oklch(0.12 0.01 260);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.18 0.015 260);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.18 0.015 260);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.75 0.18 55);
-  --primary-foreground: oklch(0.12 0 0);
-  --secondary: oklch(0.24 0.015 260);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.22 0.015 260);
-  --muted-foreground: oklch(0.78 0.02 260);
-  --accent: oklch(0.25 0.02 260);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 18%);
-  --input: oklch(1 0 0 / 22%);
-  --ring: oklch(0.75 0.18 55);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.16 0.015 260);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.75 0.18 55);
-  --sidebar-primary-foreground: oklch(0.12 0 0);
-  --sidebar-accent: oklch(0.24 0.015 260);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 18%);
-  --sidebar-ring: oklch(0.75 0.18 55);
+  --background: #000000;
+  --foreground: #FFFFFF;
+  --card: #14213D;
+  --card-foreground: #FFFFFF;
+  --popover: #14213D;
+  --popover-foreground: #FFFFFF;
+  --primary: #FCA311;
+  --primary-foreground: #000000;
+  --secondary: #1F2E4D;
+  --secondary-foreground: #FFFFFF;
+  --muted: #1A2845;
+  --muted-foreground: #E5E5E5;
+  --accent: #FCA311;
+  --accent-foreground: #000000;
+  --destructive: #EF4444;
+  --border: rgba(229, 229, 229, 0.15);
+  --input: rgba(229, 229, 229, 0.2);
+  --ring: #FCA311;
+  --sidebar: #14213D;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #FCA311;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #1F2E4D;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(229, 229, 229, 0.15);
+  --sidebar-ring: #FCA311;
 }
 
 @layer base {
