@@ -1,0 +1,39 @@
+# Dependências e pacotes instalados (muito pesados para o Git)
+node_modules/
+/.pnp
+.pnp.*
+
+# Variáveis de ambiente com senhas e segredos (NUNCA versionar)
+.env
+.env*.local
+.env.local
+.env.production
+
+# Planilhas e dados locais brutos
+dados publico inscrito 2026/
+*.xlsx
+*.xls
+*.csv
+
+# Cache e builds do Next.js / Vercel
+.next/
+/out/
+/build/
+.vercel/
+
+# Logs e arquivos temporários de sistema
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.DS_Store
+Thumbs.db
+*.pem
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Permitir apenas o arquivo de exemplo de variáveis
+!.env.example

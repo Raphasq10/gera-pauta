@@ -1,0 +1,247 @@
+"use client";
+
+import React, { useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Sparkles, History, Users, Layers, ExternalLink, Calendar, MapPin, ShieldCheck } from "lucide-react";
+import { Toaster } from "@/components/ui/sonner";
+import { GeneratorScreen } from "@/components/GeneratorScreen";
+import { HistoryScreen } from "@/components/HistoryScreen";
+import { PersonasScreen } from "@/components/PersonasScreen";
+import { HubScreen } from "@/components/HubScreen";
+import { INITIAL_PERSONAS, INITIAL_UPDATES, INITIAL_PITCHES, PersonaData, FestivalUpdate, PitchContent } from "@/data/mockData";
+
+export default function Home() {
+  const [personas, setPersonas] = useState<PersonaData[]>(INITIAL_PERSONAS);
+  const [updates, setUpdates] = useState<FestivalUpdate[]>(INITIAL_UPDATES);
+  const [pitches, setPitches] = useState<PitchContent[]>(INITIAL_PITCHES);
+  const [activeTab, setActiveTab] = useState<string>("generator");
+  const [userApiKey, setUserApiKey] = useState<string>("");
+
+  // Carrega chave salva e pautas persistidas no banco local e navegador ao abrir o aplicativo
+  React.useEffect(() => {
+    let localSaved: PitchContent[] = [];
+    if (typeof window !== "undefined") {
+      const savedKey = localStorage.getItem("inova_gemini_api_key") || localStorage.getItem("inova_pauta_gemini_key") || "";
+      if (savedKey) setUserApiKey(savedKey);
+
+      try {
+        const rawLocalPitches = localStorage.getItem("inova_saved_pitches");
+        if (rawLocalPitches) {
+          localSaved = JSON.parse(rawLocalPitches);
+          if (Array.isArray(localSaved) && localSaved.length > 0) {
+            setPitches(localSaved);
+          }
+        }
+      } catch {
+        // safe ignore
+      }
+    }
+
+    async function loadPitches() {
+      try {
+        const res = await fetch("/api/pitches");
+        const data = await res.json();
+        if (data.success && Array.isArray(data.pitches)) {
+          // Mescla sem duplicar por ID
+          setPitches((prev) => {
+            const ids = new Set(prev.map((p) => p.id));
+            const merged = [...prev];
+            for (const p of data.pitches) {
+              if (!ids.has(p.id)) {
+                ids.add(p.id);
+                merged.push(p);
+              }
+            }
+            return merged;
+          });
+        }
+      } catch (err) {
+        console.error("Falha ao carregar pautas salvas:", err);
+      }
+    }
+    loadPitches();
+  }, []);
+
+  // Salva no localStorage do navegador sempre que as pautas forem alteradas
+  const syncLocalStorage = (updatedList: PitchContent[]) => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("inova_saved_pitches", JSON.stringify(updatedList));
+      } catch {
+        // safe ignore
+      }
+    }
+  };
+
+  const handleNewPitchesGenerated = (newPitches: PitchContent[]) => {
+    // Adiciona as novas pautas no topo da lista (histórico automático)
+    setPitches((prev) => {
+      const updated = [...newPitches, ...prev];
+      syncLocalStorage(updated);
+      return updated;
+    });
+  };
+
+  const handleUpdatePitch = (pitchId: string, updatedFields: Partial<PitchContent>) => {
+    setPitches((prev) => {
+      const updated = prev.map((p) => (p.id === pitchId ? { ...p, ...updatedFields } : p));
+      syncLocalStorage(updated);
+      return updated;
+    });
+  };
+
+  const handleDeletePitch = (pitchId: string) => {
+    if (pitchId === "all") {
+      setPitches([]);
+      syncLocalStorage([]);
+    } else {
+      setPitches((prev) => {
+        const updated = prev.filter((p) => p.id !== pitchId);
+        syncLocalStorage(updated);
+        return updated;
+      });
+    }
+  };
+
+  const handleAddUpdate = (newUpdate: FestivalUpdate) => {
+    setUpdates((prev) => [newUpdate, ...prev]);
+  };
+
+  const handleDeleteUpdate = (id: string) => {
+    setUpdates((prev) => prev.filter((u) => u.id !== id));
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500/30">
+      <Toaster position="top-right" richColors />
+
+      {/* HEADER SUPERIOR FIXO / INSTITUCIONAL */}
+      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+          {/* Logo e Nome do Produto */}
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-600 flex items-center justify-center shadow-lg shadow-orange-500/20 font-black text-white text-base">
+              GP
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1.5">
+                  Gera Pauta
+                </h1>
+                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] py-0 px-2 font-mono">
+                  SaaS B2B
+                </Badge>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Gerador de Pautas Contextualizadas para Redes Sociais • Pequenos Negócios & Agências
+              </p>
+            </div>
+          </div>
+
+          {/* Dados de Quota & Status Comercial */}
+          <div className="flex items-center gap-3 text-xs text-slate-400">
+            <div className="hidden sm:flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-full border border-slate-800 text-[11px]">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-slate-300 font-semibold">Degustação:</span>
+              <span className="text-amber-400 font-mono font-bold">5 Pautas Grátis</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* ÁREA PRINCIPAL COM AS 4 TELAS EM ABAS */}
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <div className="flex justify-center w-full">
+            <TabsList className="w-full max-w-4xl bg-slate-900/90 border border-slate-700/80 p-1.5 rounded-2xl grid grid-cols-2 sm:grid-cols-4 gap-1.5 shadow-xl backdrop-blur">
+              <TabsTrigger
+                value="generator"
+                className="data-active:bg-amber-500 data-active:text-slate-950 data-[state=active]:bg-amber-500 data-[state=active]:text-slate-950 text-xs sm:text-sm font-bold py-2.5 sm:py-3 px-3 gap-2 text-slate-300 hover:text-white transition-all cursor-pointer rounded-xl flex items-center justify-center shadow-none data-active:shadow-md"
+              >
+                <Sparkles className="w-4 h-4 shrink-0" />
+                <span>1. Gerador de Pautas</span>
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="history"
+                className="data-active:bg-amber-500 data-active:text-slate-950 data-[state=active]:bg-amber-500 data-[state=active]:text-slate-950 text-xs sm:text-sm font-bold py-2.5 sm:py-3 px-3 gap-2 text-slate-300 hover:text-white transition-all cursor-pointer rounded-xl flex items-center justify-center shadow-none data-active:shadow-md"
+              >
+                <History className="w-4 h-4 shrink-0" />
+                <span>2. Histórico ({pitches.length})</span>
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="personas"
+                className="data-active:bg-amber-500 data-active:text-slate-950 data-[state=active]:bg-amber-500 data-[state=active]:text-slate-950 text-xs sm:text-sm font-bold py-2.5 sm:py-3 px-3 gap-2 text-slate-300 hover:text-white transition-all cursor-pointer rounded-xl flex items-center justify-center shadow-none data-active:shadow-md"
+              >
+                <Users className="w-4 h-4 shrink-0" />
+                <span>3. Personas & Dados</span>
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="hub"
+                className="data-active:bg-amber-500 data-active:text-slate-950 data-[state=active]:bg-amber-500 data-[state=active]:text-slate-950 text-xs sm:text-sm font-bold py-2.5 sm:py-3 px-3 gap-2 text-slate-300 hover:text-white transition-all cursor-pointer rounded-xl flex items-center justify-center shadow-none data-active:shadow-md"
+              >
+                <Layers className="w-4 h-4 shrink-0" />
+                <span>4. Hub do Festival</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* TELA 1: GERADOR DE PAUTAS */}
+          <TabsContent value="generator" className="outline-none focus:ring-0">
+            <GeneratorScreen
+              personas={personas}
+              updates={updates}
+              pitches={pitches}
+              onNewPitchesGenerated={handleNewPitchesGenerated}
+              onUpdatePitch={handleUpdatePitch}
+              onDeletePitch={handleDeletePitch}
+            />
+          </TabsContent>
+
+          {/* TELA 2: HISTÓRICO DE PAUTAS */}
+          <TabsContent value="history" className="outline-none focus:ring-0">
+            <HistoryScreen
+              pitches={pitches}
+              personas={personas}
+              onUpdatePitch={handleUpdatePitch}
+              onDeletePitch={handleDeletePitch}
+              userApiKey={userApiKey}
+            />
+          </TabsContent>
+
+          {/* TELA 3: PERSONAS & DADOS DOS INSCRITOS */}
+          <TabsContent value="personas" className="outline-none focus:ring-0">
+            <PersonasScreen
+              personas={personas}
+              onPersonasUpdated={(updatedPersonas) => setPersonas(updatedPersonas)}
+            />
+          </TabsContent>
+
+          {/* TELA 4: HUB DO FESTIVAL */}
+          <TabsContent value="hub" className="outline-none focus:ring-0">
+            <HubScreen
+              updates={updates}
+              onAddUpdate={handleAddUpdate}
+              onDeleteUpdate={handleDeleteUpdate}
+            />
+          </TabsContent>
+        </Tabs>
+      </main>
+
+      {/* FOOTER INFORMATIVO */}
+      <footer className="border-t border-slate-900 bg-slate-950/90 py-4 text-center text-xs text-slate-400">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <p>
+            <strong>Gera Pauta</strong> • Inteligência Editorial para Pequenos Negócios e Agências
+          </p>
+          <p className="text-[11px] text-slate-500">
+            Arquitetura Híbrida Multi-LLM • Dados isolados por cliente
+          </p>
+        </div>
+      </footer>
+    </div>
+  );
+}
