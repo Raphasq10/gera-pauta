@@ -384,9 +384,9 @@ ${pitch.legenda}
               </span>
             </div>
             <div>
-              <span className="text-slate-300 block text-[11px] uppercase font-bold tracking-wider">Logística Principal:</span>
-              <span className="text-slate-100 font-medium block">
-                {currentPersona.transport[0]?.label} <strong className="text-blue-300">({currentPersona.transport[0]?.pct}%)</strong>
+              <span className="text-slate-300 block text-[11px] uppercase font-bold tracking-wider">Principal Dor / Objeção:</span>
+              <span className="text-slate-100 font-medium block text-xs line-clamp-2">
+                {currentPersona.keyPain}
               </span>
             </div>
             <div>
