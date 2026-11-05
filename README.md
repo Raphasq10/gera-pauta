@@ -24,9 +24,10 @@ Conta com uma **Arquitetura Híbrida de IA**:
 
 ## 🚀 3. Como Rodar o Projeto Localmente
 
-1. **Clone o repositório ou acesse a pasta:**
+1. **Clone o repositório:**
    ```bash
-   cd c:\xampp\htdocs\gerador-pauta
+   git clone https://github.com/Raphasq10/gera-pauta.git
+   cd gera-pauta
    ```
 
 2. **Instale as dependências:**
@@ -47,9 +48,3 @@ Conta com uma **Arquitetura Híbrida de IA**:
 
 5. **Acesse no navegador:**
    Abra [http://localhost:3000](http://localhost:3000)
-
----
-
-## 📚 4. Documentação de Apoio
-- [PRD.md](./PRD.md) — Documento de Requisitos de Produto, Personas e Regras de Negócio
-- [TECH_STACK.md](./TECH_STACK.md) — Arquitetura de Software e Guia Técnico Explicativo
