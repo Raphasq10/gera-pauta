@@ -869,7 +869,7 @@ export default function HomePage() {
           </div>
 
           <p className="text-[11px] text-[#E5E5E5]/40">
-            © {new Date().getFullYear()} Gera Pauta. Todos os direitos reservados.
+            © 2026 Gera Pauta. Todos os direitos reservados.
           </p>
         </div>
       </footer>
