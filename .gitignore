@@ -1,4 +1,4 @@
-# Dependências e pacotes instalados (muito pesados para o Git)
+# Dependências e pacotes instalados
 node_modules/
 /.pnp
 .pnp.*
@@ -14,6 +14,13 @@ dados publico inscrito 2026/
 *.xlsx
 *.xls
 *.csv
+
+# Documentações internas de produto e estratégia (protegidas localmente)
+PRD*.md
+TECH_STACK.md
+PROMPT*.md
+AGENTS.md
+docs/
 
 # Cache e builds do Next.js / Vercel
 .next/
