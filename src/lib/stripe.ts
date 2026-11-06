@@ -10,23 +10,31 @@ import Stripe from "stripe";
  * o modo Sandbox de desenvolvimento transparente.
  */
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY || "";
+/**
+ * Obtém o cliente Stripe dinamicamente em tempo de execução
+ */
+export function getStripe(): Stripe | null {
+  const secretKey = (process.env.STRIPE_SECRET_KEY || "").trim();
+  if (!secretKey || !secretKey.startsWith("sk_")) {
+    return null;
+  }
 
-export const stripe = stripeSecretKey
-  ? new Stripe(stripeSecretKey, {
-      apiVersion: "2025-01-27.acacia" as any,
-      appInfo: {
-        name: "Gera Pauta AI",
-        version: "1.0.0"
-      }
-    })
-  : null;
+  return new Stripe(secretKey, {
+    appInfo: {
+      name: "Gera Pauta AI",
+      version: "1.0.0"
+    }
+  });
+}
+
+export const stripe = getStripe();
 
 /**
  * Verifica se a Stripe está configurada com chave real no ambiente
  */
 export function isStripeConfigured(): boolean {
-  return Boolean(stripe && stripeSecretKey.trim().startsWith("sk_"));
+  const secretKey = (process.env.STRIPE_SECRET_KEY || "").trim();
+  return Boolean(secretKey && secretKey.startsWith("sk_"));
 }
 
 /**

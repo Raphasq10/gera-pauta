@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { CreateCheckoutSessionSchema } from "@/lib/schemas/checkout";
-import { stripe, isStripeConfigured, PLAN_CONFIG } from "@/lib/stripe";
+import { getStripe, isStripeConfigured, PLAN_CONFIG } from "@/lib/stripe";
 
 /**
  * ============================================================================
@@ -39,8 +39,10 @@ export async function POST(request: Request) {
 
     const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
+    const stripe = getStripe();
+
     // 3. Se a Stripe estiver configurada com chave real no ambiente
-    if (isStripeConfigured() && stripe) {
+    if (stripe) {
       try {
         const configuredPriceId = process.env.STRIPE_PRICE_ID_PRO?.trim();
         const lineItem = (planId === "pro_monthly" && configuredPriceId)
@@ -86,22 +88,20 @@ export async function POST(request: Request) {
         });
       } catch (stripeError: any) {
         console.error("[STRIPE_API_ERROR]:", stripeError?.message || stripeError);
-        // Fallback gracioso para modo sandbox caso haja erro de comunicação externa
+        return NextResponse.json(
+          { error: `Erro na Stripe: ${stripeError?.message || "Falha ao gerar tela de pagamento."}` },
+          { status: 400 }
+        );
       }
     }
 
-    // 4. Modo Sandbox / Desenvolvimento (Simulação Segura de Checkout Transparente)
-    console.log(`[CHECKOUT_SANDBOX] Ambiente sem chave de produção da Stripe. Ativando redirect simulado para usuário ${user.id}`);
-
-    const simulatedSessionId = `sim_cs_test_${Date.now()}`;
-    const sandboxSuccessUrl = `${origin}/checkout/success?session_id=${simulatedSessionId}&plan=${plan.id}`;
-
-    return NextResponse.json({
-      success: true,
-      isSandbox: true,
-      url: sandboxSuccessUrl,
-      message: "Modo Sandbox: Redirecionando para tela de ativação de teste."
-    });
+    // 4. Se a chave da Stripe não estiver presente no ambiente da Vercel
+    return NextResponse.json(
+      { 
+        error: "A chave STRIPE_SECRET_KEY não foi encontrada neste deploy da Vercel. Por favor, clique na aba Deployments da Vercel e faça o Redeploy para carregar as variáveis de ambiente recém-salvas." 
+      },
+      { status: 400 }
+    );
   } catch (error: any) {
     console.error("[CHECKOUT_ROUTE_ERROR]:", error?.message || error);
     return NextResponse.json(
