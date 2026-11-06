@@ -183,9 +183,13 @@ export default function DashboardPage() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      await supabase.auth.signOut();
+    } catch {}
     toast.success("Você saiu da sua conta.");
     router.push("/login");
+    router.refresh();
   };
 
   const handleGenerate = async () => {

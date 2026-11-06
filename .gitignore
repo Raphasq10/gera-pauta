@@ -21,6 +21,7 @@ TECH_STACK.md
 PROMPT*.md
 AGENTS.md
 docs/
+!docs/tests/
 
 # Cache e builds do Next.js / Vercel
 .next/
