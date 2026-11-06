@@ -229,20 +229,20 @@ function LoginForm() {
   const isSubmitting = loginForm.formState.isSubmitting || signUpForm.formState.isSubmitting;
 
   return (
-    <div className="min-h-screen bg-[#050914] text-white flex flex-col justify-center items-center px-4 py-12 selection:bg-[#FCA311]/30">
+    <div className="min-h-screen bg-[#0D0C1D] text-white flex flex-col justify-center items-center px-4 py-12 selection:bg-[#FFB020]/30">
       
       {/* Botão de voltar */}
       <div className="w-full max-w-md mb-6">
         <Link 
           href="/" 
-          className="text-xs text-slate-400 hover:text-[#FCA311] transition-colors flex items-center gap-1.5 inline-flex font-medium"
+          className="text-xs text-slate-400 hover:text-[#FFB020] transition-colors flex items-center gap-1.5 inline-flex font-medium"
         >
           ← Voltar para a página inicial
         </Link>
       </div>
 
-      <Card className="w-full max-w-md bg-[#14213D] border border-slate-700/80 p-6 sm:p-8 rounded-2xl shadow-2xl relative overflow-hidden backdrop-blur">
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#14213D] via-[#FCA311] to-[#14213D]" />
+      <Card className="w-full max-w-md bg-[#1E1B4B] border border-[#2A2A3A] p-6 sm:p-8 rounded-2xl shadow-2xl relative overflow-hidden backdrop-blur">
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#5B5BF7] via-[#FFB020] to-[#5B5BF7]" />
 
         {/* ========================================================
             TELA DEDICADA: CONFIRME SEU E-MAIL
@@ -250,9 +250,9 @@ function LoginForm() {
         {pendingConfirmationEmail ? (
           <div className="text-center space-y-6 py-2">
             
-            <div className="relative w-16 h-16 rounded-2xl bg-amber-500/10 border border-[#FCA311]/40 mx-auto flex items-center justify-center text-[#FCA311] shadow-xl">
+            <div className="relative w-16 h-16 rounded-2xl bg-[#5B5BF7]/10 border border-[#FFB020]/40 mx-auto flex items-center justify-center text-[#FFB020] shadow-xl">
               <Mail className="w-8 h-8 animate-bounce duration-1000" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#FCA311] flex items-center justify-center text-[10px] text-black font-black">
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#FFB020] flex items-center justify-center text-[10px] text-black font-black">
                 1
               </span>
             </div>
@@ -264,12 +264,12 @@ function LoginForm() {
               <p className="text-xs text-slate-300 leading-relaxed max-w-xs mx-auto">
                 Para sua segurança, enviamos um link de confirmação para o endereço:
               </p>
-              <div className="p-2.5 rounded-xl bg-[#050914] border border-[#FCA311]/30 font-mono text-xs text-[#FCA311] font-bold break-all">
+              <div className="p-2.5 rounded-xl bg-[#0D0C1D] border border-[#FFB020]/30 font-mono text-xs text-[#FFB020] font-bold break-all">
                 {pendingConfirmationEmail}
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-700/80 text-left text-xs text-slate-300 space-y-2">
+            <div className="p-4 rounded-xl bg-[#0D0C1D]/60 border border-[#2A2A3A] text-left text-xs text-slate-300 space-y-2">
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <span>Clique no botão <strong>"Confirm your mail"</strong> no e-mail recebido.</span>
@@ -292,7 +292,7 @@ function LoginForm() {
                 >
                   <Button 
                     type="button"
-                    className="w-full bg-[#FCA311] hover:bg-[#FCA311]/90 text-black font-extrabold h-11 text-xs rounded-xl shadow-lg shadow-[#FCA311]/20 cursor-pointer gap-2"
+                    className="w-full bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-extrabold h-11 text-xs rounded-xl shadow-lg shadow-[#FFB020]/20 cursor-pointer gap-2"
                   >
                     <ExternalLink className="w-4 h-4" /> Abrir meu Gmail Agora
                   </Button>
@@ -305,7 +305,7 @@ function LoginForm() {
                 onClick={handleResendConfirmation}
                 disabled={resendCooldown > 0 || isResending}
                 variant="outline"
-                className="w-full border-slate-700 bg-[#050914] text-white hover:bg-black hover:text-[#FCA311] h-11 rounded-xl text-xs font-semibold cursor-pointer gap-2"
+                className="w-full border-[#2A2A3A] bg-[#0D0C1D] text-white hover:bg-black hover:text-[#FFB020] h-11 rounded-xl text-xs font-semibold cursor-pointer gap-2"
               >
                 {isResending ? (
                   <span className="flex items-center gap-1.5">
@@ -340,8 +340,12 @@ function LoginForm() {
           <>
             {/* Cabeçalho */}
             <div className="text-center mb-6">
-              <div className="w-12 h-12 rounded-xl bg-[#050914] border border-[#FCA311]/40 mx-auto flex items-center justify-center mb-3 shadow-lg">
-                <Sparkles className="w-6 h-6 text-[#FCA311]" />
+              <div className="flex justify-center mb-3">
+                <img 
+                  src="/images/logo.png" 
+                  alt="Gera Pauta" 
+                  className="h-10 w-auto object-contain drop-shadow" 
+                />
               </div>
               <h1 className="text-2xl font-black tracking-tight text-white">
                 {isSignUp ? "Crie sua conta gratuita" : "Bem-vindo(a) de volta"}
@@ -366,7 +370,7 @@ function LoginForm() {
                       maxLength={255}
                       placeholder="seu@email.com"
                       {...loginForm.register("email")}
-                      className="bg-[#050914] border-slate-700 text-white placeholder:text-slate-500 pl-9 focus-visible:ring-[#FCA311] text-sm h-11"
+                      className="bg-[#0D0C1D] border-[#2A2A3A] text-white placeholder:text-slate-500 pl-9 focus-visible:ring-[#FFB020] text-sm h-11"
                     />
                   </div>
                   {loginForm.formState.errors.email && (
@@ -382,7 +386,7 @@ function LoginForm() {
                     <button
                       type="button"
                       onClick={() => setIsResetModalOpen(true)}
-                      className="text-[11px] text-[#FCA311] hover:underline cursor-pointer font-medium"
+                      className="text-[11px] text-[#FFB020] hover:underline cursor-pointer font-medium"
                     >
                       Esqueceu a senha?
                     </button>
@@ -395,7 +399,7 @@ function LoginForm() {
                       maxLength={100}
                       placeholder="••••••••"
                       {...loginForm.register("password")}
-                      className="bg-[#050914] border-slate-700 text-white placeholder:text-slate-500 pl-9 pr-10 focus-visible:ring-[#FCA311] text-sm h-11"
+                      className="bg-[#0D0C1D] border-[#2A2A3A] text-white placeholder:text-slate-500 pl-9 pr-10 focus-visible:ring-[#FFB020] text-sm h-11"
                     />
                     <button
                       type="button"
@@ -416,7 +420,7 @@ function LoginForm() {
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-[#FCA311] hover:bg-[#FCA311]/90 text-black font-extrabold h-11 text-sm rounded-xl transition-all shadow-lg shadow-[#FCA311]/20 cursor-pointer mt-2"
+                  className="w-full bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-extrabold h-11 text-sm rounded-xl transition-all shadow-lg shadow-[#FFB020]/20 cursor-pointer mt-2"
                 >
                   {isSubmitting ? (
                     <span className="flex items-center justify-center gap-2">
@@ -438,7 +442,7 @@ function LoginForm() {
                     maxLength={100}
                     placeholder="Ex: Clínica Sorriso / Hamburgueria Grill"
                     {...signUpForm.register("companyName")}
-                    className="bg-[#050914] border-slate-700 text-white placeholder:text-slate-500 focus-visible:ring-[#FCA311] text-sm h-11"
+                    className="bg-[#0D0C1D] border-[#2A2A3A] text-white placeholder:text-slate-500 focus-visible:ring-[#FFB020] text-sm h-11"
                   />
                   {signUpForm.formState.errors.companyName && (
                     <p className="text-[11px] text-rose-400 font-medium">
@@ -457,7 +461,7 @@ function LoginForm() {
                       maxLength={255}
                       placeholder="seu@email.com"
                       {...signUpForm.register("email")}
-                      className="bg-[#050914] border-slate-700 text-white placeholder:text-slate-500 pl-9 focus-visible:ring-[#FCA311] text-sm h-11"
+                      className="bg-[#0D0C1D] border-[#2A2A3A] text-white placeholder:text-slate-500 pl-9 focus-visible:ring-[#FFB020] text-sm h-11"
                     />
                   </div>
                   {signUpForm.formState.errors.email && (
@@ -477,7 +481,7 @@ function LoginForm() {
                       maxLength={100}
                       placeholder="••••••••"
                       {...signUpForm.register("password")}
-                      className="bg-[#050914] border-slate-700 text-white placeholder:text-slate-500 pl-9 pr-10 focus-visible:ring-[#FCA311] text-sm h-11"
+                      className="bg-[#0D0C1D] border-[#2A2A3A] text-white placeholder:text-slate-500 pl-9 pr-10 focus-visible:ring-[#FFB020] text-sm h-11"
                     />
                     <button
                       type="button"
@@ -498,7 +502,7 @@ function LoginForm() {
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-[#FCA311] hover:bg-[#FCA311]/90 text-black font-extrabold h-11 text-sm rounded-xl transition-all shadow-lg shadow-[#FCA311]/20 cursor-pointer mt-2"
+                  className="w-full bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-extrabold h-11 text-sm rounded-xl transition-all shadow-lg shadow-[#FFB020]/20 cursor-pointer mt-2"
                 >
                   {isSubmitting ? (
                     <span className="flex items-center justify-center gap-2">
@@ -516,10 +520,10 @@ function LoginForm() {
             {/* Divisor */}
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-700" />
+                <div className="w-full border-t border-[#2A2A3A]" />
               </div>
               <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
-                <span className="bg-[#14213D] px-2 text-slate-400 font-semibold">ou continue com</span>
+                <span className="bg-[#1E1B4B] px-2 text-slate-400 font-semibold">ou continue com</span>
               </div>
             </div>
 
@@ -528,7 +532,7 @@ function LoginForm() {
               type="button"
               onClick={handleGoogleLogin}
               variant="outline"
-              className="w-full border-slate-700 bg-[#050914] text-white hover:bg-black hover:text-[#FCA311] h-11 rounded-xl text-xs font-semibold cursor-pointer gap-2"
+              className="w-full border-[#2A2A3A] bg-[#0D0C1D] text-white hover:bg-[#1E1B4B] hover:text-[#FFB020] h-11 rounded-xl text-xs font-semibold cursor-pointer gap-2"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path
@@ -559,7 +563,7 @@ function LoginForm() {
                   <button
                     type="button"
                     onClick={() => setIsSignUp(false)}
-                    className="text-[#FCA311] font-bold hover:underline cursor-pointer"
+                    className="text-[#FFB020] font-bold hover:underline cursor-pointer"
                   >
                     Fazer login
                   </button>
@@ -570,7 +574,7 @@ function LoginForm() {
                   <button
                     type="button"
                     onClick={() => setIsSignUp(true)}
-                    className="text-[#FCA311] font-bold hover:underline cursor-pointer"
+                    className="text-[#FFB020] font-bold hover:underline cursor-pointer"
                   >
                     Cadastre-se grátis
                   </button>
@@ -583,10 +587,10 @@ function LoginForm() {
 
       {/* MODAL DE RECUPERAÇÃO DE SENHA */}
       <Dialog open={isResetModalOpen} onOpenChange={setIsResetModalOpen}>
-        <DialogContent className="bg-[#14213D] border border-slate-700 text-white sm:max-w-md">
+        <DialogContent className="bg-[#1E1B4B] border border-[#2A2A3A] text-white sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg font-bold text-white">
-              <KeyRound className="w-5 h-5 text-[#FCA311]" /> Recuperar Acesso
+              <KeyRound className="w-5 h-5 text-[#FFB020]" /> Recuperar Acesso
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-300">
               Digite o e-mail cadastrado. Enviaremos um link seguro para você redefinir sua senha.
@@ -604,7 +608,7 @@ function LoginForm() {
                   maxLength={255}
                   placeholder="seu@email.com"
                   {...resetForm.register("email")}
-                  className="bg-[#050914] border-slate-700 text-white placeholder:text-slate-500 pl-9 focus-visible:ring-[#FCA311] text-sm h-11"
+                  className="bg-[#0D0C1D] border-[#2A2A3A] text-white placeholder:text-slate-500 pl-9 focus-visible:ring-[#FFB020] text-sm h-11"
                 />
               </div>
               {resetForm.formState.errors.email && (
@@ -626,7 +630,7 @@ function LoginForm() {
               <Button
                 type="submit"
                 disabled={isResetting}
-                className="bg-[#FCA311] hover:bg-[#FCA311]/90 text-black font-bold text-xs h-10 px-4 rounded-xl cursor-pointer"
+                className="bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-bold text-xs h-10 px-4 rounded-xl cursor-pointer"
               >
                 {isResetting ? (
                   <span className="flex items-center gap-1.5">
@@ -653,8 +657,8 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#050914] flex items-center justify-center text-white">
-        <RefreshCw className="w-6 h-6 animate-spin text-[#FCA311]" />
+      <div className="min-h-screen bg-[#0D0C1D] flex items-center justify-center text-white">
+        <RefreshCw className="w-6 h-6 animate-spin text-[#FFB020]" />
       </div>
     }>
       <LoginForm />

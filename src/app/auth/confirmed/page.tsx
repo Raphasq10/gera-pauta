@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
@@ -30,12 +30,12 @@ function ConfirmedContent() {
   }, [router, nextRoute]);
 
   return (
-    <div className="min-h-screen bg-[#050914] text-white flex flex-col justify-center items-center px-4 py-12 selection:bg-[#FCA311]/30">
-      <Card className="w-full max-w-md bg-[#14213D] border border-slate-700 p-8 rounded-3xl shadow-2xl text-center space-y-6 relative overflow-hidden backdrop-blur">
+    <div className="min-h-screen bg-[#050914] text-white flex flex-col justify-center items-center px-4 py-12 selection:bg-[#FFB020]/30">
+      <Card className="w-full max-w-md bg-[#1E1B4B] border border-slate-700 p-8 rounded-3xl shadow-2xl text-center space-y-6 relative overflow-hidden backdrop-blur">
         
         {/* Glow dourado de celebração */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-[#FCA311] to-emerald-500" />
-        <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#FCA311]/15 blur-[80px] rounded-full pointer-events-none" />
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-[#FFB020] to-emerald-500" />
+        <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#FFB020]/15 blur-[80px] rounded-full pointer-events-none" />
 
         <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 mx-auto flex items-center justify-center text-emerald-400 shadow-xl">
           <CheckCircle2 className="w-9 h-9" />
@@ -55,11 +55,11 @@ function ConfirmedContent() {
 
         <div className="bg-[#050914] p-4 rounded-xl border border-slate-700/80 text-xs text-slate-300 flex items-center justify-between">
           <span>Redirecionando em:</span>
-          <span className="font-mono text-sm font-black text-[#FCA311]">{countdown}s</span>
+          <span className="font-mono text-sm font-black text-[#FFB020]">{countdown}s</span>
         </div>
 
         <Link href={nextRoute} className="block w-full">
-          <Button className="w-full bg-[#FCA311] hover:bg-[#FCA311]/90 text-black font-extrabold h-12 rounded-xl text-sm shadow-xl shadow-[#FCA311]/25 cursor-pointer gap-2">
+          <Button className="w-full bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-extrabold h-12 rounded-xl text-sm shadow-xl shadow-[#FFB020]/25 cursor-pointer gap-2">
             Continuar para o Onboarding <ArrowRight className="w-4 h-4" />
           </Button>
         </Link>
@@ -73,7 +73,7 @@ export default function ConfirmedPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-[#050914] flex items-center justify-center text-white">
-        <RefreshCw className="w-6 h-6 animate-spin text-[#FCA311]" />
+        <RefreshCw className="w-6 h-6 animate-spin text-[#FFB020]" />
       </div>
     }>
       <ConfirmedContent />

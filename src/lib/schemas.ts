@@ -67,12 +67,13 @@ export const BriefingFormSchema = z.object({
     .trim()
     .min(1, "Selecione obrigatoriamente a persona-alvo do conteúdo."),
   updateId: z.string().trim().default("none"),
-  channel: z.enum(["instagram", "linkedin", "whatsapp"], {
+  channel: z.enum(["instagram", "linkedin", "whatsapp", "tiktok"], {
     message: "Canal inválido selecionado."
   }),
-  weeklyTheme: z.enum(["terca-futuro", "quarta-ciencia", "quinta-b2b", "sexta-lazer", "livre"], {
-    message: "Dia da grade semanal inválido."
-  }).default("livre"),
+  weeklyTheme: z.string().trim().default("whatsapp"),
+  goal: z.enum(["whatsapp", "comments", "saves", "sales", "shares", "leads"]).default("whatsapp").optional(),
+  includeEmojis: z.boolean().default(true),
+  includeHashtags: z.boolean().default(true),
   pitchCount: z
     .number()
     .int("A quantidade deve ser um número inteiro.")
@@ -88,26 +89,38 @@ export const BriefingFormSchema = z.object({
 
 export type BriefingFormValues = z.infer<typeof BriefingFormSchema>;
 
-// Schema da Feature 4: Requisição para o Orquestrador de IA
+// Schema da Feature 3: Requisição para o Orquestrador de IA (Geração Multicanal)
 export const GeneratePitchesRequestSchema = z.object({
   personaId: z.string().trim().min(1, "A persona é obrigatória."),
   updateId: z.string().trim().default("none"),
-  channel: z.enum(["instagram", "linkedin", "whatsapp"], {
+  channel: z.enum(["instagram", "linkedin", "whatsapp", "tiktok"], {
     message: "Canal inválido."
   }),
-  weeklyTheme: z.enum(["terca-futuro", "quarta-ciencia", "quinta-b2b", "sexta-lazer", "livre"]).default("livre"),
+  weeklyTheme: z.string().trim().default("whatsapp"),
+  goal: z.enum(["whatsapp", "comments", "saves", "sales", "shares", "leads"]).default("whatsapp").optional(),
+  includeEmojis: z.boolean().default(true),
+  includeHashtags: z.boolean().default(true),
   pitchCount: z.number().int().min(1).max(5),
   initialIdea: z.string().trim().max(800).optional().or(z.literal("")),
-  userApiKey: z.string().trim().max(200).optional()
+  userApiKey: z.string().trim().max(200).optional(),
+  businessContext: z.object({
+    companyName: z.string().trim().max(100).optional(),
+    niche: z.string().trim().max(100).optional(),
+    toneOfVoice: z.string().trim().max(150).optional(),
+    targetAudience: z.string().trim().max(300).optional(),
+    keyPain: z.string().trim().max(500).optional(),
+    differential: z.string().trim().max(500).optional(),
+  }).optional()
 });
 
 export type GeneratePitchesRequestValues = z.infer<typeof GeneratePitchesRequestSchema>;
 
-// Schema da Feature 5: Estrutura de Pauta & Versionamento no Histórico
+// Schema da Feature 3: Estrutura de Pauta & Versionamento no Histórico
 export const PitchVersionHistorySchema = z.object({
   version: z.number().int().min(1),
   mote: z.string().trim().max(1000),
   headlineArte: z.string().trim().max(500),
+  headlineArteAlt: z.string().trim().max(500).optional(),
   legenda: z.string().trim().max(5000),
   formato: z.string().trim().max(200),
   changeNote: z.string().trim().max(1000).optional()
@@ -121,9 +134,10 @@ export const PitchContentSchema = z.object({
   personaName: z.string().trim().max(200),
   updateTitle: z.string().trim().max(200).optional(),
   initialIdea: z.string().trim().max(800).optional(),
-  channel: z.string().trim().max(100),
+  channel: z.enum(["instagram", "linkedin", "whatsapp", "tiktok"]),
   mote: z.string().trim().min(5).max(1000),
   headlineArte: z.string().trim().min(3).max(500),
+  headlineArteAlt: z.string().trim().max(500).optional(),
   legenda: z.string().trim().min(10).max(5000),
   formato: z.string().trim().min(2).max(200),
   justificativaFormato: z.string().trim().min(5).max(2000),
@@ -132,14 +146,29 @@ export const PitchContentSchema = z.object({
 
 export type PitchContentValues = z.infer<typeof PitchContentSchema>;
 
-// Schema da Feature 5: Requisição para Refinar / Ajustar Pauta Específica
+// Schema da Feature 3: Requisição para Refinar / Ajustar Pauta Específica
 export const RefinePitchRequestSchema = z.object({
   pitchId: z.string().trim().min(1, "O ID da pauta é obrigatório."),
   pitch: PitchContentSchema.optional(),
-  instruction: z.string().trim().max(600, "A instrução não pode ultrapassar 600 caracteres.").optional().or(z.literal("")),
+  instruction: z
+    .string()
+    .trim()
+    .min(3, "A instrução de ajuste deve ter no mínimo 3 caracteres.")
+    .max(600, "A instrução não pode ultrapassar 600 caracteres."),
   format: z.string().trim().max(100).default("manter"),
   tone: z.string().trim().max(100).default("manter"),
-  userApiKey: z.string().trim().max(200).optional()
+  channel: z.enum(["instagram", "linkedin", "whatsapp", "tiktok"]).optional(),
+  includeEmojis: z.boolean().default(true).optional(),
+  includeHashtags: z.boolean().default(true).optional(),
+  userApiKey: z.string().trim().max(200).optional(),
+  businessContext: z.object({
+    companyName: z.string().trim().max(100).optional(),
+    niche: z.string().trim().max(100).optional(),
+    toneOfVoice: z.string().trim().max(150).optional(),
+    targetAudience: z.string().trim().max(300).optional(),
+    keyPain: z.string().trim().max(500).optional(),
+    differential: z.string().trim().max(500).optional(),
+  }).optional()
 });
 
 export type RefinePitchRequestValues = z.infer<typeof RefinePitchRequestSchema>;

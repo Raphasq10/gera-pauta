@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GeneratePitchesRequestSchema } from "@/lib/schemas";
 import { callGoogleGeminiInteractions } from "@/lib/gemini";
+import { createClient } from "@/lib/supabase/server";
+import { decryptText } from "@/lib/crypto";
 import fs from "fs";
 import path from "path";
 
-// Caminho dos arquivos locais
-const PERSONAS_PATH = path.join(process.cwd(), "src", "data", "personas-2026.json");
-const FESTIVAL_CONTEXT_PATH = path.join(process.cwd(), "src", "data", "festival-context.json");
+// Caminho para histórico local de fallback
 const PITCHES_PATH = path.join(process.cwd(), "src", "data", "saved-pitches.json");
 
 function persistPitches(newPitches: any[]): void {
@@ -24,179 +24,140 @@ function persistPitches(newPitches: any[]): void {
 interface FallbackPitch {
   mote: string;
   headlineArte: string;
+  headlineArteAlt: string;
   legenda: string;
   formato: string;
   justificativaFormato: string;
 }
 
+interface BusinessContext {
+  companyName: string;
+  niche: string;
+  toneOfVoice: string;
+  targetAudience: string;
+  keyPain: string;
+  differential: string;
+}
+
 /**
- * Motor Criativo Inteligente Local
- * Interpreta o briefing do conteudista semanticamente (sem recortar o texto bruto)
- * e gera pautas 100% distintas entre si para cada índice do lote.
+ * Motor Criativo Local Adaptativo:
+ * Gera pautas 100% contextualizadas com a marca do cliente, 2 opções de headline,
+ * respeitando canal (Instagram, LinkedIn, WhatsApp, TikTok), objetivo e toggles.
  */
 function generateOfflinePitches(
-  persona: any,
-  update: any | null,
+  business: BusinessContext,
   channel: string,
-  weeklyTheme: string,
+  goal: string,
   pitchCount: number,
-  initialIdea?: string
+  initialIdea?: string,
+  includeEmojis: boolean = true,
+  includeHashtags: boolean = true
 ): FallbackPitch[] {
+  const company = business.companyName || "Nossa Empresa";
+  const niche = business.niche || "Serviços Especializados";
+  const pain = business.keyPain || "medo de errar na escolha ou gastar sem retorno";
+  const diff = business.differential || "atendimento humanizado, agilidade e garantia";
   const ideaText = (initialIdea || "").trim();
-  const isIdeaGiven = ideaText.length > 0;
-  const ideaLower = ideaText.toLowerCase();
 
-  const baseTitle = update ? update.title : "6 Mundos Temáticos e 4 Shows Nacionais";
-  const worldName = update ? update.world : "Itaipu Parquetec";
+  // CTA customizado por objetivo
+  let ctaText = "";
+  if (goal === "whatsapp") {
+    ctaText = channel === "whatsapp" 
+      ? "📲 *Responda esta mensagem agora para garantir seu atendimento exclusivo.*" 
+      : "📲 Toque no link da bio e fale conosco diretamente pelo WhatsApp para tirar suas dúvidas!";
+  } else if (goal === "comments") {
+    ctaText = "💬 Deixe um comentário com a sua dúvida ou opinião que nós respondemos pessoalmente!";
+  } else if (goal === "saves") {
+    ctaText = "📌 Salve este post agora para não esquecer quando precisar dessa solução!";
+  } else if (goal === "sales") {
+    ctaText = "🔥 Restam poucos horários disponíveis nesta semana. Clique no link e garanta o seu!";
+  } else {
+    ctaText = "👉 Compartilhe este conteúdo com alguém que precisa saber disso hoje!";
+  }
 
-  const themeLabels: Record<string, string> = {
-    "terca-futuro": "Terça do Futuro & IA",
-    "quarta-ciencia": "Quarta da Ciência & Pesquisa",
-    "quinta-b2b": "Quinta de Negócios & Conexões",
-    "sexta-lazer": "Sexta de Shows & Cultura",
-    "livre": "Grade Oficial 2026"
-  };
+  // Tags do nicho
+  const cleanNicheTag = niche.replace(/\s+/g, "");
+  const cleanCompanyTag = company.replace(/\s+/g, "");
+  const hashtagsBlock = includeHashtags 
+    ? `\n\n#${cleanCompanyTag} #${cleanNicheTag} #Dicas #Resultados` 
+    : "";
 
-  // Detecção semântica de intenções no briefing do conteudista
-  const isAboutFriends = ideaLower.includes("amigo") || ideaLower.includes("galera") || ideaLower.includes("turma") || ideaLower.includes("grupo") || ideaLower.includes("curtir");
-  const isAboutMeme = ideaLower.includes("meme") || ideaLower.includes("humor") || ideaLower.includes("engraçad") || ideaLower.includes("piada");
-  const isAboutCareer = ideaLower.includes("carreira") || ideaLower.includes("emprego") || ideaLower.includes("estágio") || ideaLower.includes("currículo") || ideaLower.includes("horas");
-  const isAboutBus = ideaLower.includes("ônibus") || ideaLower.includes("transporte") || ideaLower.includes("carona") || ideaLower.includes("chegar");
-  const isAboutFree = ideaLower.includes("grátis") || ideaLower.includes("gratuit") || ideaLower.includes("0800") || ideaLower.includes("pagar");
+  const e = (emoji: string) => (includeEmojis ? emoji : "");
 
-  const interests = persona.topInterests || [{ label: "Inovação", pct: 75 }, { label: "Cultura", pct: 60 }];
-  const goals = persona.topGoals || [{ label: "Networking", pct: 70 }, { label: "Aprendizado", pct: 65 }];
-  const transport = persona.transport?.[0] || { label: "transporte", pct: 50 };
-
-  // Banco de arquétipos criativos distintos para garantir que Pauta #1, #2, #3, #4, #5 NUNCA sejam iguais
-  const isDrauzio = ideaLower.includes("drauzio") || ideaLower.includes("médic") || ideaLower.includes("saúde");
-  const isViralEdit = ideaLower.includes("edit") || ideaLower.includes("fancam") || ideaLower.includes("viral") || ideaLower.includes("curiosidade");
-
-  const creativeAngles = [
-    // ÂNGULO 1: Social / FOMO / Experiência Coletiva
+  const angles = [
+    // Ângulo 1: Quebra de Objeção / Dor
     {
-      build: (format: string, interest: any, goal: any) => {
-        if (isDrauzio && isViralEdit) {
-          return {
-            mote: `[Vídeo Estilo Fancam/Edit & Curiosidades]: humanizar a trajetória do Dr. Drauzio Varella com alta retenção, conectando causas sociais, Carandiru e +50 anos de carreira com a persona ${persona.name}.`,
-            headlineArte: `Pioneirismo, Carandiru e +50 anos de carreira: o que você não sabia sobre o Dr. Drauzio Varella 🎬🩺`,
-            legenda: `Ícone da saúde pública, pioneiro na divulgação científica e com mais de 5 décadas dedicadas a cuidar de pessoas: Dr. Drauzio Varella é presença confirmada no Festival Iguassu Inova 2026! 🩺✨\n\nMuito além dos consultórios, a trajetória dele é marcada por coragem, atuação histórica no Carandiru e o dom raro de traduzir a ciência em uma linguagem acessível para todo o Brasil.\n\n📍 Onde: Itaipu Parquetec (Foz do Iguaçu - PR)\n📅 Quando: 25 a 28 de Novembro de 2026\n🎟️ Entrada: 100% Gratuita (retirada antecipada pelo app Yazo Tickets)\n🎓 Certificado oficial de participação\n\nSalve esse vídeo e marque aqui quem não pode perder esse momento histórico! 👇\n\n#FestivalIguassuInova2026 #DrauzioVarella #SaudePublica #ItaipuParquetec #FozDoIguacu`
-          };
-        }
-        if (isDrauzio) {
-          return {
-            mote: `[Aula Magna de Saúde & Ciência]: posicionar a palestra do Dr. Drauzio Varella como o encontro imperdível do ano no Festival para ${persona.name}.`,
-            headlineArte: `Dr. Drauzio Varella em Foz: uma aula magna de ciência, ética e saúde no Festival Iguassu Inova! 🩺🌟`,
-            legenda: `Uma das mentes mais respeitadas da medicina brasileira desembarca em Foz do Iguaçu para um encontro transformador no Festival Iguassu Inova 2026! 🩺✨\n\nDe 25 a 28 de novembro, o Itaipu Parquetec será palco de reflexões profundas sobre o futuro da saúde, causas sociais e inovação humana com o Dr. Drauzio Varella.\n\n🎟️ O acesso é 100% GRATUITO, mas as vagas no auditório são limitadas! Emita seu passaporte no app Yazo Tickets pelo link da bio.\n\n#FestivalIguassuInova2026 #DrauzioVarella #ItaipuParquetec`
-          };
-        }
-        if (isIdeaGiven) {
-          const cleanHead = ideaText.length > 60 ? ideaText.slice(0, 60) + "..." : ideaText;
-          return {
-            mote: `[Atendimento Direto ao Briefing]: pauta focada na ideia "${ideaText.slice(0, 45)}...", direcionando para os interesses de ${persona.name}.`,
-            headlineArte: `${cleanHead} 🔥`,
-            legenda: `Você pediu e o Festival Iguassu Inova 2026 preparou uma experiência sob medida!\n\n${ideaText}\n\nDe 25 a 28 de novembro no Itaipu Parquetec:\n🚀 6 Mundos Temáticos com tecnologias e ciência\n🎸 Shows nacionais gratuitos e espaço gastronômico\n🎓 Certificado oficial de participação\n\nGaranta seu passaporte gratuito pelo link da bio no app Yazo Tickets!\n\n#FestivalIguassuInova2026 #ItaipuParquetec #${persona.category}`
-          };
-        }
-        if (isAboutFriends) {
-          return {
-            mote: `[${themeLabels[weeklyTheme]}] A experiência do Festival fica 10x melhor em galera: transformar o passeio com os amigos em um rolê épico.`,
-            headlineArte: `Marque aqui o grupo de amigos que vai fechar o semestre com você no Festival Iguassu Inova! 🔥`,
-            legenda: `Sabe aquele rolê que junta todo mundo — desde tecnologia até shows no fim da tarde? 🙌✨\n\nO Festival Iguassu Inova 2026 não é lugar pra ir sozinho! Chame a sua turma de 25 a 28 de novembro no Itaipu Parquetec.\n\n#FestivalIguassuInova2026 #ItaipuParquetec`
-          };
-        }
-        return {
-          mote: `[${themeLabels[weeklyTheme]}] Gancho de Impacto Direto: posicionar ${baseTitle} como o evento imperdível do ano para ${persona.name}.`,
-          headlineArte: `O maior encontro de ciência, negócios e música da Tríplice Fronteira é 100% gratuito.`,
-          legenda: `Prepare-se para 4 dias que vão virar a chave da sua visão de futuro! 🚀\n\nDe 25 a 28 de novembro, o Itaipu Parquetec abre as portas para o Festival Iguassu Inova 2026.\n\n#FestivalIguassuInova2026 #ItaipuParquetec`
-        };
-      }
+      mote: `Quebrar a principal dor do cliente ("${pain.slice(0, 45)}...") e posicionar a ${company} como a escolha mais segura.`,
+      headlineArte: `Ainda com receio de ${pain.slice(0, 40)}? ${e("🤔")}`,
+      headlineArteAlt: `Como ter tranquilidade com ${niche.toLowerCase()} sem cair em promessas vazias.`,
+      legenda: channel === "whatsapp"
+        ? `Olá! Sabemos que o medo de ${pain.slice(0, 50)} é real.\n\nNa *${company}*, o seu atendimento é baseado em *${diff}*.\n\n${ctaText}`
+        : channel === "tiktok"
+        ? `🎬 ROTEIRO DINÂMICO (3 CENAS):\n• Cena 1 (0-3s): "Você ainda tem medo de ${pain.slice(0, 35)}?"\n• Cena 2 (3-15s): Mostrando a solução da ${company} com foco em ${diff}.\n• Cena 3 (15-20s): Chamada para ação imediata.\n\n${e("📌 ")}LEGENDA:\nDescubra por que a ${company} é diferente. ${ctaText}${hashtagsBlock}`
+        : `Muitas pessoas adiam o que precisam por medo ou experiências frustrantes do passado.\n\nNa ${company}, nós entendemos exatamente isso. Por isso, construímos todo o nosso método com foco em ${diff}.\n\n${ctaText}${hashtagsBlock}`,
+      formato: channel === "tiktok" ? "Vídeo Rápido / Reels (3 Cenas)" : channel === "linkedin" ? "Artigo de Autoridade / Post Executivo" : "Carrossel Educativo (Mito vs. Verdade)",
+      justificativaFormato: "Conduz o leitor da insegurança até a decisão de contato através de provas de valor tangíveis."
     },
-
-    // ÂNGULO 2: Guia Prático / Roteiro / Checklist ("Tudo que temos no festival")
+    // Ângulo 2: Destaque de Diferencial Competitivo
     {
-      build: (format: string, interest: any, goal: any) => {
-        if (isDrauzio) {
-          return {
-            mote: `[Curiosidades & Fatos Marcantes]: lista dinâmica de fatos curiosos e marcantes da trajetória do Dr. Drauzio para gerar compartilhamento e engajamento.`,
-            headlineArte: `5 curiosidades que provam por que o Dr. Drauzio Varella é uma lenda da ciência brasileira 📌🙌`,
-            legenda: `Você sabia que muito antes dos vídeos virais, o Dr. Drauzio já quebrava tabus e transformava a saúde pública no Brasil? 🩺\n\nConfira o que torna a presença dele no Festival Iguassu Inova 2026 tão imperdível:\n\n1️⃣ Pioneirismo absoluto na luta contra o tabagismo e epidemias\n2️⃣ Atuação marcante no sistema prisional e lições de humanidade no Carandiru\n3️⃣ O talento único de democratizar temas médicos complexos em linguagem acessível\n4️⃣ Mais de meio século de dedicação contínua à medicina\n5️⃣ Maratonista experiente aos mais de 80 anos de idade!\n\nDe 25 a 28 de novembro, viva esse momento histórico ao vivo no Itaipu Parquetec com entrada franca!\n\n📲 Garanta seu passaporte gratuito pelo link da bio no app Yazo Tickets.\n\n#FestivalIguassuInova2026 #Curiosidades #DrauzioVarella #ItaipuParquetec`
-          };
-        }
-        if (isIdeaGiven) {
-          return {
-            mote: `[Desdobramento Educativo & Checklist]: estrutura de alto valor sobre "${ideaText.slice(0, 45)}..." gerando salvamentos.`,
-            headlineArte: `O que você precisa saber sobre esse tema no Festival Iguassu Inova 2026 📌`,
-            legenda: `Quer aproveitar cada detalhe da programação no Itaipu Parquetec? Confira o checklist:\n\n🔹 ${ideaText}\n🔹 6 Mundos Temáticos com experiências práticas\n🔹 Rodadas de conexão e grandes shows gratuitos\n\nPassaporte gratuito disponível no app Yazo Tickets (link na bio)!\n\n#FestivalIguassuInova2026 #GuiaDoFestival #ItaipuParquetec`
-          };
-        }
-        return {
-          mote: `[${themeLabels[weeklyTheme]}] Quebra de Objeções & Serviço: responder as principais dúvidas sobre acesso e gratuidade.`,
-          headlineArte: `3 motivos reais para você garantir seu passaporte gratuito do Festival hoje mesmo.`,
-          legenda: `Ainda em dúvida se o Festival Iguassu Inova 2026 é para você? Confira como desenhamos cada detalhe pensando na sua rotina.\n\n#FestivalIguassuInova2026 #ItaipuParquetec`
-        };
-      }
+      mote: `Exaltar o diferencial da ${company} ("${diff.slice(0, 45)}...") frente a opções genéricas do mercado.`,
+      headlineArte: `Por que tantas pessoas escolhem a ${company} para ${niche.toLowerCase()}? ${e("✨")}`,
+      headlineArteAlt: `O detalhe que faz a ${company} ser referência em qualidade e segurança.`,
+      legenda: channel === "whatsapp"
+        ? `Você sabia? Quando o assunto é *${niche}*, a ${company} entrega *${diff}*.\n\n${ctaText}`
+        : channel === "tiktok"
+        ? `🎬 ROTEIRO (3 CENAS):\n• Cena 1: "O que ninguém te conta sobre ${niche.toLowerCase()}!"\n• Cena 2: Comparativo rápido de valor com ${diff}.\n• Cena 3: Finalização com CTA.\n\n${e("👉 ")}LEGENDA:\nA diferença de quem trabalha com padrão elevado. ${ctaText}${hashtagsBlock}`
+        : `Quando se trata de ${niche}, a diferença real não está apenas no que é feito, mas em COMO é feito. ${e("✨")}\n\nNosso compromisso inegociável é entregar ${diff}, com foco total na sua satisfação.\n\n${ctaText}${hashtagsBlock}`,
+      formato: channel === "linkedin" ? "Post de Liderança & Benchmarking" : "Card Único de Alto Impacto",
+      justificativaFormato: "Comunica sofisticação, clareza e autoridade imediata no feed, sem ruídos desnecessários."
     },
-
-    // ÂNGULO 3: Bastidores / POV / Urgência & Escassez
+    // Ângulo 3: Atendimento Direto ao Briefing / Gancho de Curiosidade
     {
-      build: (format: string, interest: any, goal: any) => {
-        return {
-          mote: `[${themeLabels[weeklyTheme]}] POV (Ponto de Vista) & Urgência: criar sensação de pertencimento imediato mostrando como um dia no Festival acelera resultados em ${goal.label.toLowerCase()}.`,
-          headlineArte: `POV: Você juntou sua galera e descobriu que o maior festival do ano acontece aqui em Foz 🚀`,
-          legenda: `Imagina sair da rotina e, em uma única tarde, assistir a ${baseTitle}, testar tecnologias na prática, fazer contatos estratégicos e terminar o dia curtindo música boa com seus amigos? 🌟\n\nIsso não acontece só nas grandes capitais — acontece aqui em Foz do Iguaçu, dentro do Itaipu Parquetec!\n\nDe 25 a 28 de novembro, o Festival Iguassu Inova 2026 foi feito sob medida para você que se interessa por ${interest.label.toLowerCase()}.\n\n⏳ Os passaportes gratuitos na Yazo Tickets estão voando. Toque no link da bio e garanta o seu lugar agora!\n\n#FestivalIguassuInova2026 #POV #ItaipuParquetec #TrípliceFronteira`
-        };
-      }
+      mote: ideaText 
+        ? `Desenvolver a ideia do briefing: "${ideaText.slice(0, 50)}..."` 
+        : `Provocar a reflexão sobre o custo de adiar uma solução para ${pain.slice(0, 35)}.`,
+      headlineArte: ideaText 
+        ? `${ideaText.slice(0, 45)}: o que você precisa saber? ${e("💡")}` 
+        : `O que ninguém te conta sobre ${niche.toLowerCase()} nos dias de hoje? ${e("👀")}`,
+      headlineArteAlt: ideaText 
+        ? `${ideaText.slice(0, 50)} com garantia de excelência na ${company}.` 
+        : `O caminho mais seguro e direto para alcançar seus objetivos em ${niche}.`,
+      legenda: channel === "whatsapp"
+        ? `${ideaText ? `*Novidade:* ${ideaText}\n\n` : ""}Na *${company}*, ajudamos você com *${diff}*.\n\n${ctaText}`
+        : `${ideaText ? `${ideaText}\n\n` : ""}Se você busca resultados consistentes em ${niche}, precisa contar com quem entende do assunto de ponta a ponta.\n\nNa ${company}, cuidamos de cada detalhe com ${diff}.\n\n${ctaText}${hashtagsBlock}`,
+      formato: channel === "whatsapp" ? "Mensagem Direta Formatada com Negrito" : "Reels / Vídeo Curto Explicativo",
+      justificativaFormato: "Gera identificação instantânea com a novidade ou reflexão proposta."
     },
-
-    // ÂNGULO 4: Pergunta Curiosa / Interação nos Stories & Comentários
+    // Ângulo 4: Conversão com Escassez
     {
-      build: (format: string, interest: any, goal: any) => {
-        return {
-          mote: `[${themeLabels[weeklyTheme]}] Engajamento por Pergunta Direta: estimular comentários perguntando qual atração ou mundo do Festival o público mais quer visitar.`,
-          headlineArte: `Se você pudesse escolher só 1 motivo pra ir ao Festival Iguassu Inova, qual seria? 👇`,
-          legenda: `Queremos saber o que faz seu olho brilhar! ✨ De 25 a 28 de novembro, o Itaipu Parquetec se divide em experiências completas:\n\n🅰️ Assistir às palestras de ${interest.label} e ${baseTitle}\n🅱️ Garantir certificado, networking e oportunidades de ${goal.label.toLowerCase()}\n🅾️ Curtir os shows nacionais gratuitos e a gastronomia com os amigos\n\nA boa notícia? Você não precisa escolher um só! Com o passaporte único e 100% gratuito da Yazo Tickets, você tem acesso livre aos 4 dias.\n\nComente aqui embaixo: qual é a sua letra (A, B ou O) e marque quem vai com você! 💬👇\n\n#FestivalIguassuInova2026 #Enquete #ItaipuParquetec`
-        };
-      }
+      mote: `Criar senso de urgência e oportunidade para quem busca ${niche.toLowerCase()} nesta semana.`,
+      headlineArte: `Procurando ${niche.toLowerCase()} com quem realmente entrega o prometido? ${e("⏳")}`,
+      headlineArteAlt: `Garanta as melhores condições para o seu atendimento na ${company}.`,
+      legenda: channel === "whatsapp"
+        ? `Atenção: horários especiais abertos para *${niche}* nesta semana na *${company}*.\n\n${ctaText}`
+        : `Cuidar das suas necessidades não precisa ser complicado nem demorado.\n\nOferecemos ${diff} para que você tenha total segurança desde o primeiro contato.\n\n${ctaText}${hashtagsBlock}`,
+      formato: "Stories com Enquete Interativa + Link Direto",
+      justificativaFormato: "Estimula a resposta rápida aproveitando a janela de atenção do usuário."
     },
-
-    // ÂNGULO 5: Autoridade / Dados da Comunidade
+    // Ângulo 5: Comparativo e Posicionamento de Valor
     {
-      build: (format: string, interest: any, goal: any) => {
-        return {
-          mote: `[${themeLabels[weeklyTheme]}] Prova Social com Dados: usar o fato de que milhares de inscritos já confirmaram presença para atrair os indecisos.`,
-          headlineArte: `Mais de 7.000 pessoas já garantiram presença. Só falta você e a sua turma! 🎯`,
-          legenda: `Quando milhares de estudantes, profissionais, pesquisadores e famílias da região confirmam presença no mesmo lugar, você sabe que algo gigante está prestes a acontecer! 🔥\n\nO Festival Iguassu Inova 2026 já é o ponto de encontro oficial de quem busca ${interest.label.toLowerCase()} e quer viver de perto atrações como ${baseTitle}.\n\n📍 Onde: Itaipu Parquetec (Foz do Iguaçu)\n📅 Quando: 25 a 28 de Novembro de 2026\n🎟️ Quanto: 100% Gratuito na Yazo Tickets (link na bio)\n\nNão fique de fora da foto oficial! Emita sua credencial agora mesmo.\n\n#FestivalIguassuInova2026 #InovacaoSocial #ItaipuParquetec`
-        };
-      }
+      mote: `Comparar a frustração do amadorismo com o padrão de excelência da ${company}.`,
+      headlineArte: `O barato que sai caro: por que você não deve arriscar em ${niche.toLowerCase()}? ${e("⚠️")}`,
+      headlineArteAlt: `A tranquilidade de investir em quem garante ${diff.slice(0, 35)}.`,
+      legenda: `Economizar no lugar errado costuma custar o dobro de dor de cabeça depois.\n\nNa ${company}, garantimos ${diff} para que você tenha a tranquilidade de um trabalho impecável.\n\n${ctaText}${hashtagsBlock}`,
+      formato: "Carrossel Comparativo (Lado a Lado)",
+      justificativaFormato: "Quebra a objeção de preço demonstrando valor tangível e riscos reais de soluções genéricas."
     }
   ];
 
-  return Array.from({ length: pitchCount }).map((_, idx) => {
-    const format = persona.suggestedFormats[idx % persona.suggestedFormats.length] || "Carrossel Interativo";
-    const interest = interests[idx % interests.length] || interests[0];
-    const goal = goals[idx % goals.length] || goals[0];
-    const angle = creativeAngles[idx % creativeAngles.length];
-
-    const content = angle.build(format, interest, goal);
-
-    const justificativa = `Escolhemos o formato "${format}" com este ângulo porque ${interest.pct}% dos ${persona.count} inscritos adultos desta persona têm interesse direto em ${interest.label}, ${goal.pct}% buscam ${goal.label.toLowerCase()} e ${transport.pct}% utilizam ${transport.label} (o que favorece combinados em grupo/carona e conteúdos compartilháveis no ${channel.toUpperCase()}).`;
-
-    return {
-      mote: content.mote,
-      headlineArte: content.headlineArte,
-      legenda: content.legenda,
-      formato: format,
-      justificativaFormato: justificativa
-    };
-  });
+  return angles.slice(0, Math.min(pitchCount, 5));
 }
 
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.json();
 
-    // 1. Validação com Zod (Segurança, tipos e limites)
+    // 1. Validação com Zod no Servidor
     const validation = GeneratePitchesRequestSchema.safeParse(rawBody);
     if (!validation.success) {
       return NextResponse.json(
@@ -212,248 +173,262 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Proteção contra Mass Assignment — pegamos apenas os campos validados
     const {
-      personaId,
-      updateId,
       channel,
       weeklyTheme,
+      goal,
+      includeEmojis = true,
+      includeHashtags = true,
       pitchCount,
       initialIdea,
-      userApiKey
+      userApiKey,
+      businessContext
     } = validation.data;
 
-    // 3. Carregar dados reais das Personas 2026
-    let personas = [];
-    if (fs.existsSync(PERSONAS_PATH)) {
-      personas = JSON.parse(fs.readFileSync(PERSONAS_PATH, "utf-8"));
-    }
-    const persona = personas.find((p: any) => p.id === personaId);
-    if (!persona) {
-      return NextResponse.json(
-        { success: false, error: "Persona selecionada não foi encontrada na base de dados." },
-        { status: 404 }
-      );
-    }
+    const effectiveGoal = goal || weeklyTheme || "whatsapp";
 
-    // 4. Carregar contexto de atualização do festival (se aplicável)
-    let updateFound = null;
-    if (updateId && updateId !== "none") {
-      let updates = [];
-      if (fs.existsSync(FESTIVAL_CONTEXT_PATH)) {
-        updates = JSON.parse(fs.readFileSync(FESTIVAL_CONTEXT_PATH, "utf-8"));
+    // 2. Verificação de Quota no Backend (Feature 4 - Critério de Aceitação do PRD)
+    let authUser: any = null;
+    let currentUsedPitches = 0;
+    let userByokKey = "";
+    const MAX_FREE_PITCHES = 5;
+
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      authUser = user;
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("used_pitches, is_pro, user_api_key")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        const isPro = profile?.is_pro === true;
+        if (profile?.user_api_key) {
+          userByokKey = decryptText(profile.user_api_key);
+        }
+        const hasByok = Boolean((userApiKey && userApiKey.trim()) || userByokKey);
+        currentUsedPitches = profile?.used_pitches ?? 0;
+
+        // Bloqueia no servidor caso o usuário tenha atingido as 5 pautas no plano grátis
+        if (!isPro && !hasByok && currentUsedPitches >= MAX_FREE_PITCHES) {
+          return NextResponse.json(
+            {
+              success: false,
+              code: "QUOTA_EXCEEDED",
+              error: "Você atingiu o limite de 5 pautas gratuitas de degustação! Assine o Plano Pro ou conecte sua chave de IA.",
+              usedPitches: currentUsedPitches,
+              maxFreePitches: MAX_FREE_PITCHES
+            },
+            { status: 403 }
+          );
+        }
       }
-      updateFound = updates.find((u: any) => u.id === updateId);
+    } catch (authErr) {
+      console.warn("[AUTH_QUOTA_CHECK_WARN]:", authErr);
     }
 
-    // 5. Determinar chave de API Gemini: prioriza a enviada pelo usuário na tela, variável de ambiente ou .env.local
-    let geminiApiKey = userApiKey?.trim() || process.env.GEMINI_API_KEY || "";
-    if (!geminiApiKey) {
+    // 3. Resolução do Contexto do Negócio (Memória de Marca)
+    let business: BusinessContext = {
+      companyName: businessContext?.companyName || "Minha Empresa",
+      niche: businessContext?.niche || "Negócio Local",
+      toneOfVoice: businessContext?.toneOfVoice || "Profissional, acolhedor e direto",
+      targetAudience: businessContext?.targetAudience || "Pessoas interessadas em soluções de qualidade",
+      keyPain: businessContext?.keyPain || "Insegurança ou receio de não ter retorno",
+      differential: businessContext?.differential || "Atendimento pontual e foco em resultados",
+    };
+
+    // Se o cliente não passou o contexto completo, tenta buscar do banco Supabase do usuário
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: dbBusiness } = await supabase
+          .from("businesses")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (dbBusiness) {
+          business = {
+            companyName: dbBusiness.company_name || business.companyName,
+            niche: dbBusiness.niche || business.niche,
+            toneOfVoice: dbBusiness.tone_of_voice || business.toneOfVoice,
+            targetAudience: business.targetAudience,
+            keyPain: dbBusiness.key_pain || business.keyPain,
+            differential: dbBusiness.differential || business.differential,
+          };
+        }
+      }
+    } catch {
+      // safe ignore
+    }
+
+    // 4. Arquitetura de Inteligência em 3 Níveis & Resiliência (Feature 5)
+    // Nível 1: Chave BYOK do Usuário (se informada no payload ou salva criptografada no perfil)
+    // Nível 2: Chave Oficial do Sistema (process.env.GEMINI_API_KEY ou .env.local)
+    // Nível 3: Motor Criativo Local Offline Contextualizado (100% de disponibilidade)
+    const effectiveUserKey = (userApiKey?.trim() || userByokKey).trim();
+    let systemKey = process.env.GEMINI_API_KEY || "";
+    if (!systemKey) {
       try {
         const envPath = path.join(process.cwd(), ".env.local");
         if (fs.existsSync(envPath)) {
           const envContent = fs.readFileSync(envPath, "utf-8");
           const match = envContent.match(/GEMINI_API_KEY=["']?([^"'\r\n]+)["']?/);
-          if (match && match[1] && match[1].trim()) {
-            geminiApiKey = match[1].trim();
-            process.env.GEMINI_API_KEY = geminiApiKey;
-          }
+          if (match && match[1]) systemKey = match[1].trim();
         }
-      } catch {
-        // safe ignore
-      }
-    } else {
-      if (!process.env.GEMINI_API_KEY) {
-        process.env.GEMINI_API_KEY = geminiApiKey;
-      }
-      try {
-        const envPath = path.join(process.cwd(), ".env.local");
-        if (fs.existsSync(envPath)) {
-          let envContent = fs.readFileSync(envPath, "utf-8");
-          if (!envContent.includes(geminiApiKey)) {
-            envContent = envContent.replace(/GEMINI_API_KEY=.*/g, `GEMINI_API_KEY="${geminiApiKey}"`);
-            fs.writeFileSync(envPath, envContent, "utf-8");
-          }
-        }
-      } catch {
-        // safe ignore
-      }
+      } catch {}
     }
 
-    // Caso NÃO haja chave de API configurada, utiliza o Motor Criativo Local com ângulos distintos
-    if (!geminiApiKey) {
-      const offlineResults = generateOfflinePitches(
-        persona,
-        updateFound,
-        channel,
-        weeklyTheme,
-        pitchCount,
-        initialIdea
-      );
+    const primaryKey = effectiveUserKey || systemKey;
+    const fallbackKey = effectiveUserKey && systemKey && effectiveUserKey !== systemKey ? systemKey : "";
+    const isUsingByok = Boolean(effectiveUserKey && primaryKey === effectiveUserKey);
 
-      const formattedPitches = offlineResults.map((p, idx) => ({
-        id: `pitch-${Date.now()}-${idx}`,
-        version: 1,
-        createdAt: new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }),
-        personaId: persona.id,
-        personaName: persona.name,
-        updateTitle: updateFound?.title,
-        initialIdea: initialIdea ? initialIdea.trim() : undefined,
-        channel,
-        mote: p.mote,
-        headlineArte: p.headlineArte,
-        legenda: p.legenda,
-        formato: p.formato,
-        justificativaFormato: p.justificativaFormato
-      }));
+    // 5. Geração com Motor Inteligente e Resiliência Automática
+    const promptSystem = `Você é o Diretor de Criação & Estrategista de Conteúdo da plataforma "Gera Pauta".
+Sua missão é criar exatamente ${pitchCount} pautas de redes sociais completas, autênticas e de ALTA CONVERSÃO para o seguinte cliente:
 
-      persistPitches(formattedPitches);
+🏢 CONTEXTO E MEMÓRIA DE MARCA:
+- Empresa / Marca: ${business.companyName}
+- Nicho / Segmento: ${business.niche}
+- Tom de Voz Obrigatório: ${business.toneOfVoice}
+- Público-Alvo: ${business.targetAudience}
+- Maior Dor / Objeção do Cliente: ${business.keyPain}
+- Diferencial Competitivo da Empresa: ${business.differential}
+- Rede Social de Destino: ${channel.toUpperCase()} (instagram, linkedin, whatsapp ou tiktok)
+- Objetivo de Conversão da Pauta: ${effectiveGoal.toUpperCase()} (whatsapp, comments, saves, sales)
+- Preferência de Emojis: ${includeEmojis ? "USAR emojis harmoniosos e bem posicionados." : "PROIBIDO usar emojis (texto 100% limpo sem nenhum emoji)."}
+- Preferência de Hashtags: ${includeHashtags ? "INCLUIR 3 a 5 hashtags estratégicas no final da legenda." : "PROIBIDO incluir hashtags."}
 
-      return NextResponse.json({
-        success: true,
-        source: "offline_fallback",
-        message: "Pautas criativas geradas! Dica: Você também pode colar sua chave gratuita do Google AI Studio no botão '⚙️ Inserir Chave Gemini' para usar o Gemini 2.5 Flash ao vivo.",
-        pitches: formattedPitches
-      });
-    }
+${initialIdea ? `💡 BRIEFING / IDEIA ESPECÍFICA SOLICITADA:\n"${initialIdea}"\nFoque todas as ${pitchCount} pautas rigorosamente neste tema/ideia, adaptando aos diferenciais do negócio.` : `💡 Crie os melhores ângulos criativos para quebrar a dor ("${business.keyPain}") e posicionar o diferencial ("${business.differential}").`}
 
-    // 6. Chamada Real com Google Gemini API
-    try {
-      const isPaidTraffic = /tr[aá]fego\s*pago|an[uú]ncio|ads|fomo|cta/i.test(initialIdea || "");
+REGRAS OBRIGATÓRIAS DE ESTRUTURA PARA CADA PAUTA:
+1. mote: Resumo estratégico em 1 linha sobre a intenção do conteúdo e o objetivo de negócio.
+2. headlineArte: OPÇÃO 1 — Pergunta Provocativa ou Gancho de Curiosidade para interromper o scroll imediatamente (o que vai na imagem ou nos primeiros 3s do vídeo).
+3. headlineArteAlt: OPÇÃO 2 — Afirmação de Impacto ou Gancho Posicionador de Autoridade (segunda opção de headline para o designer testar).
+4. legenda: Copy completa, fluida, persuasiva, no tom "${business.toneOfVoice}". 
+   - Se canal for "whatsapp": formato de mensagem direta com *negrito* nos pontos-chave e chamada rápida para resposta.
+   - Se canal for "tiktok": inclua o roteiro de 3 cenas (Cena 1 Gancho 0-3s, Cena 2 Desenvolvimento 3-15s, Cena 3 CTA 15-20s) seguido da legenda.
+   - Se canal for "linkedin": tom corporativo de liderança de pensamento, reflexão de mercado e dados.
+   - Se canal for "instagram": copy escaneável com quebras de linha e chamada de ação clara.
+   - CTA customizado: Direcionar especificamente para o objetivo "${effectiveGoal}".
+5. formato: O formato recomendado (ex: "Carrossel de 3 lâminas", "Reels com gancho rápido", "Card Único de Alto Impacto", "Mensagem Direta com Negrito").
+6. justificativaFormato: Explicação clara de por que este formato específico converte melhor para este objetivo.
 
-      const briefingSection = initialIdea
-        ? `🚨 DIRETRIZ SOBERANA DO BRIEFING (PRIORIDADE MÁXIMA E ABSOLUTA):
-O conteudista definiu explicitamente o seguinte pedido de conteúdo:
-"${initialIdea}"
-
-REGRAS INEGOCIÁVEIS DESTE BRIEFING:
-1. O TEMA CENTRAL DE TODAS AS ${pitchCount} PAUTAS DEVE SER EXCLUSIVAMENTE O TEMA PEDIDO ACIMA!
-   - Se o conteudista pediu "Estudantes de Medicina trilha corpo e mente - conectar com a palestra do Drauzio", TODAS as ${pitchCount} pautas geradas DEVEM ser sobre a palestra do Dr. Drauzio Varella na Trilha Corpo & Mente para estudantes de Medicina.
-   - NUNCA mude de assunto entre as pautas! É PROIBIDO criar pautas aleatórias sobre rotas de ônibus, feiras gastronômicas ou piadas genéricas que desviem do tema central solicitado.
-   - A DIFERENCIAÇÃO ENTRE AS ${pitchCount} PAUTAS DEVE SER NO ÂNGULO PUBLICITÁRIO DENTRO DO MESMO TEMA:
-     * Pauta #1: Foco em alta performance / Gancho provocativo sobre a rotina médica e o impacto de aprender com o Dr. Drauzio Varella ao vivo.
-     * Pauta #2: Foco em Urgência, Esgotamento Mental e Exclusividade (FOMO) / Por que a Trilha Corpo & Mente é o divisor de águas na formação do futuro médico.
-     * (Se houver mais pautas): Outros ganchos focados em networking acadêmico de elite na Tríplice Fronteira ou certificado oficial.
-${isPaidTraffic ? `
-2. ORIENTAÇÃO ESPECÍFICA PARA TRÁFEGO PAGO / ANÚNCIOS (ADS):
-   - O conteudista solicitou explicitamente estrutura para TRÁFEGO PAGO / ADS com foco em FOMO ("não vai ficar de fora dessa").
-   - Escreva copies de ALTA CONVERSÃO para anúncios pagos de redes sociais:
-     * Headline / Hook: Frase curta, magnética, que interrompe o scroll do feed imediatamente.
-     * Copy da Legenda: Estrutura persuasiva e envolvente (Dor da rotina -> Solução na Trilha Corpo & Mente com Drauzio Varella -> Vantagens: 100% gratuito, Itaipu Parquetec, certificado oficial).
-     * Call to Action (CTA): Finalize OBRIGATORIAMENTE com uma chamada urgente para conversão: "Não vai ficar de fora dessa! Os passaportes gratuitos são limitados. Baixe agora o app Yazo Tickets e garanta sua vaga antes que esgote."
-     * Formato: Utilize formatos próprios de anúncios, como "Reels / Vídeo Ad (Roteiro em 3 Cenas)", "Carrossel de Anúncio Pago (Alta Conversão)" ou "Dark Post para Feed".` : ""}`
-        : `- MODO IDEAÇÃO AUTÔNOMA: Crie os melhores ângulos criativos conectando os mundos temáticos às dores da persona.`;
-
-      const promptSystem = `Você é o Diretor de Criação e Copywriter Sênior Oficial do Festival Iguassu Inova 2026 (Itaipu Parquetec, Foz do Iguaçu, 25 a 28 de novembro de 2026).
-Sua missão é criar exatamente ${pitchCount} pautas de redes sociais de nível internacional, altamente criativas, persuasivas e prontas para publicação imediata.
-
-${briefingSection}
-
-DADOS DA PERSONA PARA EMBASAMENTO (Use para quebrar objeções e conectar com o público):
-- Perfil: ${persona.name} (${persona.role})
-- Volume: ${persona.count} inscritos adultos (${persona.pctOfAdults}% da base do festival)
-- Interesses: ${persona.topInterests?.map((i: any) => `${i.label} (${i.pct}%)`).join(", ")}
-- Objetivos: ${persona.topGoals?.map((g: any) => `${g.label} (${g.pct}%)`).join(", ")}
-- Tom de Voz: Inteligente, dinâmico, jovem, respeitoso e instigante.
-
-DIRETRIZES INSTITUCIONAIS OBRIGATÓRIAS:
-1. O Festival Iguassu Inova é uma realização oficial do ITAIPU PARQUETEC e da ITAIPU BINACIONAL.
-2. É ESTRITAMENTE PROIBIDO utilizar piadas autodepreciativas de mau gosto (ex: NUNCA use frases como "pobre só sofre", caricaturas depreciativas de estudantes ou humor apelativo). O tom deve valorizar a inteligência e o futuro dos participantes.
-3. Headline (O que vai na arte/vídeo): Deve ser digna de agência premiada — limpa, instigante, sem reticências desnecessárias.
-4. Legenda: Texto completo, fluido, escaneável com emojis elegantes, quebrando objeções (100% gratuito, passaporte no app Yazo Tickets, certificado oficial) e CTA forte.
-5. Formato + Justificativa com Dados: Justifique a escolha do formato baseando-se nos objetivos da persona.
-
-RETORNE EXCLUSIVAMENTE UM ARRAY JSON VÁLIDO COM OS ${pitchCount} OBJETOS, SEM MARKDOWN ADICIONAL:
+RETORNE EXCLUSIVAMENTE UM ARRAY JSON VÁLIDO COM OS ${pitchCount} OBJETOS, SEM BLOCOS MARKDOWN ADICIONAIS:
 [
   {
     "mote": "...",
     "headlineArte": "...",
+    "headlineArteAlt": "...",
     "legenda": "...",
     "formato": "...",
     "justificativaFormato": "..."
   }
 ]`;
 
-      const { text: responseTextRaw, model: modelUsed } = await callGoogleGeminiInteractions(geminiApiKey, promptSystem);
+    let responseTextRaw = "";
+    let engineSource = isUsingByok ? "user_byok" : "system_gemini";
 
-      let parsedPitches: FallbackPitch[] = [];
+    if (primaryKey) {
+      try {
+        const res = await callGoogleGeminiInteractions(primaryKey, promptSystem);
+        responseTextRaw = res.text;
+      } catch (err: any) {
+        console.warn(`[GEMINI_PRIMARY_KEY_FAIL] Falha com a chave primária (${isUsingByok ? "BYOK do Usuário" : "Sistema"}):`, err?.message || err);
+
+        // Resiliência de Nível 2: Tenta chave do sistema se o BYOK do usuário falhar
+        if (fallbackKey) {
+          try {
+            console.log("[GEMINI_RESILIENCE] Ativando chave de contingência do sistema...");
+            const res = await callGoogleGeminiInteractions(fallbackKey, promptSystem);
+            responseTextRaw = res.text;
+            engineSource = "system_gemini_fallback";
+          } catch (fallbackErr: any) {
+            console.warn("[GEMINI_SYSTEM_FALLBACK_FAIL]:", fallbackErr?.message || fallbackErr);
+          }
+        }
+      }
+    }
+
+    let parsedPitches: FallbackPitch[] = [];
+    if (responseTextRaw) {
       try {
         const cleanJson = responseTextRaw.replace(/```json\s*/gi, "").replace(/```\s*$/g, "").trim();
         parsedPitches = JSON.parse(cleanJson);
       } catch (parseErr) {
-        console.error("Falha ao parsear JSON retornado pelo Gemini Interactions:", parseErr, "Raw:", responseTextRaw);
-        parsedPitches = generateOfflinePitches(persona, updateFound, channel, weeklyTheme, pitchCount, initialIdea);
+        console.warn("Fallback para o motor local após erro no parse:", parseErr);
       }
-
-      const formattedPitches = parsedPitches.map((p, idx) => ({
-        id: `pitch-${Date.now()}-${idx}`,
-        version: 1,
-        createdAt: new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }),
-        personaId: persona.id,
-        personaName: persona.name,
-        updateTitle: updateFound?.title,
-        initialIdea: initialIdea ? initialIdea.trim() : undefined,
-        channel,
-        mote: p.mote,
-        headlineArte: p.headlineArte,
-        legenda: p.legenda,
-        formato: p.formato,
-        justificativaFormato: p.justificativaFormato
-      }));
-
-      persistPitches(formattedPitches);
-
-      return NextResponse.json({
-        success: true,
-        source: "gemini_api",
-        model: modelUsed,
-        message: `✨ ${formattedPitches.length} pautas inéditas criadas com IA (${modelUsed})!`,
-        pitches: formattedPitches
-      });
-    } catch (geminiError: any) {
-      console.error("Erro na chamada à API Gemini, usando motor criativo local:", geminiError?.message || geminiError);
-
-      const fallbackPitches = generateOfflinePitches(
-        persona,
-        updateFound,
-        channel,
-        weeklyTheme,
-        pitchCount,
-        initialIdea
-      );
-
-      const formattedPitches = fallbackPitches.map((p, idx) => ({
-        id: `pitch-${Date.now()}-${idx}`,
-        version: 1,
-        createdAt: new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }),
-        personaId: persona.id,
-        personaName: persona.name,
-        updateTitle: updateFound?.title,
-        initialIdea: initialIdea ? initialIdea.trim() : undefined,
-        channel,
-        mote: p.mote,
-        headlineArte: p.headlineArte,
-        legenda: p.legenda,
-        formato: p.formato,
-        justificativaFormato: p.justificativaFormato
-      }));
-
-      persistPitches(formattedPitches);
-
-      return NextResponse.json({
-        success: true,
-        source: "offline_fallback",
-        message: "Aviso: Sua chave Gemini apresentou erro ou limite. O Motor Criativo Local assumiu e gerou pautas distintas para você.",
-        pitches: formattedPitches
-      });
     }
-  } catch (error: any) {
-    console.error("Erro no processamento da rota /api/generate:", error);
+
+    // Resiliência de Nível 3: Motor Criativo Local Offline se não houve resposta da IA
+    if (!parsedPitches || parsedPitches.length === 0) {
+      engineSource = "offline_fallback";
+      parsedPitches = generateOfflinePitches(
+        business, 
+        channel, 
+        effectiveGoal, 
+        pitchCount, 
+        initialIdea, 
+        includeEmojis, 
+        includeHashtags
+      );
+    }
+
+    const formattedPitches = parsedPitches.map((p, idx) => ({
+      id: `pitch-${Date.now()}-${idx}`,
+      version: 1,
+      createdAt: new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }),
+      channel,
+      mote: p.mote,
+      headlineArte: p.headlineArte,
+      headlineArteAlt: p.headlineArteAlt || `Opção B: ${p.headlineArte.replace(/[?!]/g, "")} — Veja como funciona`,
+      legenda: p.legenda,
+      formato: p.formato,
+      justificativaFormato: p.justificativaFormato
+    }));
+
+    persistPitches(formattedPitches);
+
+    // Incrementa a cota no banco Supabase se autenticado
+    let newUsed = currentUsedPitches;
+    if (authUser) {
+      try {
+        const supabase = await createClient();
+        newUsed = Math.min(currentUsedPitches + formattedPitches.length, MAX_FREE_PITCHES);
+        await supabase
+          .from("profiles")
+          .upsert({
+            id: authUser.id,
+            used_pitches: newUsed,
+            email: authUser.email
+          });
+      } catch (dbErr) {
+        console.warn("[GEMINI_QUOTA_INCREMENT_WARN]:", dbErr);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      source: engineSource,
+      isByok: isUsingByok,
+      message: `${pitchCount} pautas geradas com sucesso para ${business.companyName}!`,
+      pitches: formattedPitches,
+      quota: {
+        usedPitches: newUsed,
+        maxFreePitches: MAX_FREE_PITCHES,
+        canGenerate: newUsed < MAX_FREE_PITCHES
+      }
+    });
+  } catch (err: any) {
+    console.error("[GENERATE_API_ERROR]:", err?.message || err);
     return NextResponse.json(
-      {
-        success: false,
-        error: "Ocorreu um erro interno ao processar a geração de pautas. Tente novamente."
-      },
+      { success: false, error: "Erro ao gerar pautas. Tente novamente mais tarde." },
       { status: 500 }
     );
   }

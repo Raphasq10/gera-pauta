@@ -5,10 +5,18 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --color-brand-black: #000000;
-  --color-brand-prussian: #14213D;
-  --color-brand-gold: #FCA311;
-  --color-brand-alabaster: #E5E5E5;
+  /* Gera Pauta - Brand Identity Board */
+  --color-brand-indigo: #1E1B4B;
+  --color-brand-violet: #5B5BF7;
+  --color-brand-amber: #FFB020;
+  --color-brand-offwhite: #F8FAFC;
+  --color-brand-graphite: #2A2A3A;
+
+  /* Aliases para compatibilidade total */
+  --color-brand-black: #0D0C1D;
+  --color-brand-prussian: #1E1B4B;
+  --color-brand-gold: #FFB020;
+  --color-brand-alabaster: #F8FAFC;
   --color-brand-white: #FFFFFF;
 
   --color-background: var(--background);
@@ -55,67 +63,67 @@
 }
 
 :root {
-  --background: #000000;
-  --foreground: #FFFFFF;
-  --card: #14213D;
-  --card-foreground: #FFFFFF;
-  --popover: #14213D;
-  --popover-foreground: #FFFFFF;
-  --primary: #FCA311;
-  --primary-foreground: #000000;
-  --secondary: #1F2E4D;
+  --background: #0D0C1D;
+  --foreground: #F8FAFC;
+  --card: #1E1B4B;
+  --card-foreground: #F8FAFC;
+  --popover: #1E1B4B;
+  --popover-foreground: #F8FAFC;
+  --primary: #FFB020;
+  --primary-foreground: #0D0C1D;
+  --secondary: #5B5BF7;
   --secondary-foreground: #FFFFFF;
-  --muted: #1A2845;
-  --muted-foreground: #E5E5E5;
-  --accent: #FCA311;
-  --accent-foreground: #000000;
+  --muted: #2A2A3A;
+  --muted-foreground: #94A3B8;
+  --accent: #5B5BF7;
+  --accent-foreground: #FFFFFF;
   --destructive: #EF4444;
-  --border: rgba(229, 229, 229, 0.15);
-  --input: rgba(229, 229, 229, 0.2);
-  --ring: #FCA311;
+  --border: #2A2A3A;
+  --input: #1E1B4B;
+  --ring: #5B5BF7;
   --radius: 0.75rem;
-  --chart-1: #FCA311;
-  --chart-2: #14213D;
-  --chart-3: #E5E5E5;
-  --chart-4: #FFFFFF;
-  --chart-5: #000000;
-  --sidebar: #14213D;
-  --sidebar-foreground: #FFFFFF;
-  --sidebar-primary: #FCA311;
-  --sidebar-primary-foreground: #000000;
-  --sidebar-accent: #1F2E4D;
-  --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: rgba(229, 229, 229, 0.15);
-  --sidebar-ring: #FCA311;
+  --chart-1: #FFB020;
+  --chart-2: #5B5BF7;
+  --chart-3: #1E1B4B;
+  --chart-4: #F8FAFC;
+  --chart-5: #2A2A3A;
+  --sidebar: #1E1B4B;
+  --sidebar-foreground: #F8FAFC;
+  --sidebar-primary: #FFB020;
+  --sidebar-primary-foreground: #0D0C1D;
+  --sidebar-accent: #2A2A3A;
+  --sidebar-accent-foreground: #F8FAFC;
+  --sidebar-border: #2A2A3A;
+  --sidebar-ring: #5B5BF7;
 }
 
 .dark {
-  --background: #000000;
-  --foreground: #FFFFFF;
-  --card: #14213D;
-  --card-foreground: #FFFFFF;
-  --popover: #14213D;
-  --popover-foreground: #FFFFFF;
-  --primary: #FCA311;
-  --primary-foreground: #000000;
-  --secondary: #1F2E4D;
+  --background: #0D0C1D;
+  --foreground: #F8FAFC;
+  --card: #1E1B4B;
+  --card-foreground: #F8FAFC;
+  --popover: #1E1B4B;
+  --popover-foreground: #F8FAFC;
+  --primary: #FFB020;
+  --primary-foreground: #0D0C1D;
+  --secondary: #5B5BF7;
   --secondary-foreground: #FFFFFF;
-  --muted: #1A2845;
-  --muted-foreground: #E5E5E5;
-  --accent: #FCA311;
-  --accent-foreground: #000000;
+  --muted: #2A2A3A;
+  --muted-foreground: #94A3B8;
+  --accent: #5B5BF7;
+  --accent-foreground: #FFFFFF;
   --destructive: #EF4444;
-  --border: rgba(229, 229, 229, 0.15);
-  --input: rgba(229, 229, 229, 0.2);
-  --ring: #FCA311;
-  --sidebar: #14213D;
-  --sidebar-foreground: #FFFFFF;
-  --sidebar-primary: #FCA311;
-  --sidebar-primary-foreground: #000000;
-  --sidebar-accent: #1F2E4D;
-  --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: rgba(229, 229, 229, 0.15);
-  --sidebar-ring: #FCA311;
+  --border: #2A2A3A;
+  --input: #1E1B4B;
+  --ring: #5B5BF7;
+  --sidebar: #1E1B4B;
+  --sidebar-foreground: #F8FAFC;
+  --sidebar-primary: #FFB020;
+  --sidebar-primary-foreground: #0D0C1D;
+  --sidebar-accent: #2A2A3A;
+  --sidebar-accent-foreground: #F8FAFC;
+  --sidebar-border: #2A2A3A;
+  --sidebar-ring: #5B5BF7;
 }
 
 @layer base {
