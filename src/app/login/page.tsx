@@ -16,7 +16,9 @@ import {
   CheckCircle2, 
   ExternalLink,
   Inbox,
-  Send
+  Send,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +45,7 @@ function LoginForm() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   // Estado para tela dedicada de "Verifique seu e-mail"
   const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState<string | null>(null);
@@ -102,8 +105,7 @@ function LoginForm() {
         localStorage.setItem("gera_pauta_user_email", data.email);
       }
 
-      router.push(redirectTarget);
-      router.refresh();
+      window.location.href = redirectTarget;
     } catch {
       toast.error("Falha na conexão com o servidor. Verifique sua internet.");
     }
@@ -389,12 +391,20 @@ function LoginForm() {
                     <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
                     <Input
                       id="login-password"
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       maxLength={100}
                       placeholder="••••••••"
                       {...loginForm.register("password")}
-                      className="bg-[#050914] border-slate-700 text-white placeholder:text-slate-500 pl-9 focus-visible:ring-[#FCA311] text-sm h-11"
+                      className="bg-[#050914] border-slate-700 text-white placeholder:text-slate-500 pl-9 pr-10 focus-visible:ring-[#FCA311] text-sm h-11"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-3 text-slate-400 hover:text-white cursor-pointer"
+                      title={showPassword ? "Ocultar senha" : "Ver senha"}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                   {loginForm.formState.errors.password && (
                     <p className="text-[11px] text-rose-400 font-medium">
@@ -463,12 +473,20 @@ function LoginForm() {
                     <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
                     <Input
                       id="signup-password"
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       maxLength={100}
                       placeholder="••••••••"
                       {...signUpForm.register("password")}
-                      className="bg-[#050914] border-slate-700 text-white placeholder:text-slate-500 pl-9 focus-visible:ring-[#FCA311] text-sm h-11"
+                      className="bg-[#050914] border-slate-700 text-white placeholder:text-slate-500 pl-9 pr-10 focus-visible:ring-[#FCA311] text-sm h-11"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-3 text-slate-400 hover:text-white cursor-pointer"
+                      title={showPassword ? "Ocultar senha" : "Ver senha"}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                   {signUpForm.formState.errors.password && (
                     <p className="text-[11px] text-rose-400 font-medium">

@@ -39,6 +39,15 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  // Regra 0: Se a requisição veio de um link de e-mail do Supabase com '?code=...',
+  // redireciona para a rota de callback para efetuar a troca pelo token de sessão
+  const code = request.nextUrl.searchParams.get("code");
+  if (code && !request.nextUrl.pathname.startsWith("/api/auth/callback")) {
+    const callbackUrl = request.nextUrl.clone();
+    callbackUrl.pathname = "/api/auth/callback";
+    return NextResponse.redirect(callbackUrl);
+  }
+
   // Validação segura com getUser() (evita falsificação de JWT local)
   const { data: { user } } = await supabase.auth.getUser();
 
