@@ -70,6 +70,7 @@ export async function POST(request: Request) {
           line_items: [lineItem],
           mode: "subscription",
           allow_promotion_codes: true,
+          payment_method_collection: "if_required",
           client_reference_id: user.id,
           customer_email: user.email,
           metadata: {
