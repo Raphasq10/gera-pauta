@@ -50,12 +50,18 @@ export async function POST(req: Request) {
       case "checkout.session.completed": {
         const session = event.data.object;
         const userId = session.client_reference_id || session.metadata?.userId;
+        const customerId = session.customer;
+        const subscriptionId = session.subscription;
 
         if (userId) {
           console.log(`[STRIPE_WEBHOOK] Ativando PRO para usuário ${userId} via checkout.session.completed`);
           await supabase
             .from("profiles")
-            .update({ is_pro: true })
+            .update({ 
+              is_pro: true,
+              stripe_customer_id: customerId,
+              stripe_subscription_id: subscriptionId
+            })
             .eq("id", userId);
         }
         break;

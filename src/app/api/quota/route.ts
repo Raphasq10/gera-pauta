@@ -74,14 +74,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Proteção contra Mass Assignment: atualiza estritamente used_pitches = 0
+    // 3. Atualiza estritamente used_pitches = 0 sem afetar outras colunas (is_pro, stripe_customer_id, etc.)
     const { error: updateError } = await supabase
       .from("profiles")
-      .upsert({
-        id: user.id,
-        used_pitches: 0,
-        email: user.email
-      });
+      .update({
+        used_pitches: 0
+      })
+      .eq("id", user.id);
 
     if (updateError) {
       console.error("[QUOTA_RESET_DB_ERROR]:", updateError.message);

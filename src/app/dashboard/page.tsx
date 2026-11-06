@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
@@ -197,7 +197,24 @@ export default function DashboardPage() {
 
           if (profile) {
             setUsedPitches(profile.used_pitches || 0);
+            setIsPro(profile.is_pro === true);
             if (profile.user_api_key) setUserApiKey(profile.user_api_key);
+          }
+
+          // 1.1 Sincroniza quota e status PRO via endpoint do servidor
+          try {
+            const quotaRes = await fetch("/api/quota");
+            if (quotaRes.ok) {
+              const quotaData = await quotaRes.json();
+              if (quotaData.success && quotaData.quota) {
+                if (quotaData.quota.isPro) setIsPro(true);
+                if (typeof quotaData.quota.usedPitches === "number") {
+                  setUsedPitches(quotaData.quota.usedPitches);
+                }
+              }
+            }
+          } catch (qErr) {
+            console.warn("Erro ao sincronizar quota:", qErr);
           }
 
           // 2. Carrega Negócio Cadastrado
@@ -396,6 +413,7 @@ export default function DashboardPage() {
 
   // Feature 6: Iniciar Checkout da Assinatura (Stripe / Sandbox)
   const [isStartingCheckout, setIsStartingCheckout] = useState<boolean>(false);
+  const [isLoadingPortal, setIsLoadingPortal] = useState<boolean>(false);
 
   const handleStartCheckout = async () => {
     setIsStartingCheckout(true);
@@ -416,6 +434,28 @@ export default function DashboardPage() {
       toast.error("Erro ao iniciar processo de assinatura.");
     } finally {
       setIsStartingCheckout(false);
+    }
+  };
+
+  // Feature 6.1: Gerenciar ou Cancelar Assinatura via Stripe Customer Portal
+  const handleOpenCustomerPortal = async () => {
+    setIsLoadingPortal(true);
+    try {
+      const res = await fetch("/api/checkout/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      const data = await res.json();
+      if (data.url) {
+        toast.success("Abrindo portal de gerenciamento da sua assinatura...");
+        window.location.href = data.url;
+      } else {
+        toast.error(data.error || "Não foi possível abrir o portal da assinatura.");
+      }
+    } catch {
+      toast.error("Erro ao conectar ao portal da assinatura.");
+    } finally {
+      setIsLoadingPortal(false);
     }
   };
 
@@ -550,29 +590,44 @@ export default function DashboardPage() {
 
           {/* Status de Quota e Ações Rápidas */}
           <div className="flex items-center gap-3">
-            {/* Indicador de 5 Pautas Grátis */}
-            <div className="flex items-center gap-2 bg-[#0D0C1D]/80 px-3 py-1.5 rounded-full border border-[#2A2A3A] text-xs">
-              <Zap className="w-3.5 h-3.5 text-[#FFB020]" />
-              <span className="text-slate-300 hidden sm:inline">Degustação:</span>
-              <span className="text-[#FFB020] font-mono font-bold">
-                {Math.max(0, maxFreePitches - usedPitches)} / {maxFreePitches}
-              </span>
+            {/* Indicador de 5 Pautas Grátis - Fica OCULTO para quem já é Assinante PRO */}
+            {!isPro && (
+              <div className="flex items-center gap-2 bg-[#0D0C1D]/80 px-3 py-1.5 rounded-full border border-[#2A2A3A] text-xs">
+                <Zap className="w-3.5 h-3.5 text-[#FFB020]" />
+                <span className="text-slate-300 hidden sm:inline">Degustação:</span>
+                <span className="text-[#FFB020] font-mono font-bold">
+                  {Math.max(0, maxFreePitches - usedPitches)} / {maxFreePitches}
+                </span>
 
-              {/* Botão de reset rápido para ambiente de desenvolvimento/testes */}
-              <button
-                type="button"
-                onClick={handleResetQuota}
-                title="Resetar cota para continuar testando (Dev)"
-                className="ml-1 text-[10px] text-slate-400 hover:text-[#FFB020] underline cursor-pointer"
-              >
-                (Resetar)
-              </button>
-            </div>
+                {/* Botão de reset rápido para ambiente de testes/desenvolvimento */}
+                <button
+                  type="button"
+                  onClick={handleResetQuota}
+                  title="Resetar cota para continuar testando (Dev)"
+                  className="ml-1 text-[10px] text-slate-400 hover:text-[#FFB020] underline cursor-pointer"
+                >
+                  (Resetar)
+                </button>
+              </div>
+            )}
 
             {isPro ? (
-              <Badge className="bg-[#FFB020] text-black font-extrabold text-xs h-8 px-3 rounded-lg shadow-md flex items-center gap-1.5 border-0">
-                👑 PRO Ilimitado
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge className="bg-[#FFB020] text-black font-black text-xs h-8 px-3 rounded-lg shadow-md flex items-center gap-1.5 border-0">
+                  👑 Assinante PRO ✅
+                </Badge>
+                <Button
+                  onClick={handleOpenCustomerPortal}
+                  disabled={isLoadingPortal}
+                  variant="outline"
+                  size="sm"
+                  className="border-[#FFB020]/40 text-[#FFB020] hover:bg-[#FFB020]/10 text-xs h-8 px-3 rounded-lg cursor-pointer flex items-center gap-1.5 font-bold"
+                  title="Gerenciar assinatura, cartões ou cancelamento"
+                >
+                  {isLoadingPortal ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CreditCard className="w-3 h-3" />}
+                  Gerenciar
+                </Button>
+              </div>
             ) : (
               <Button
                 onClick={() => setActiveTab("billing")}
@@ -623,7 +678,7 @@ export default function DashboardPage() {
                 className="data-[state=active]:bg-[#FFB020] data-[state=active]:text-black text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-[#E5E5E5] transition-all cursor-pointer"
               >
                 <Building2 className="w-3.5 h-3.5" />
-                <span>3. Perfil do Negócio</span>
+                <span>3. Perfil & IA</span>
               </TabsTrigger>
 
               <TabsTrigger
@@ -631,7 +686,7 @@ export default function DashboardPage() {
                 className="data-[state=active]:bg-[#FFB020] data-[state=active]:text-black text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-[#E5E5E5] transition-all cursor-pointer"
               >
                 <CreditCard className="w-3.5 h-3.5" />
-                <span>4. Planos & IA</span>
+                <span>4. Planos & Assinatura</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1141,155 +1196,69 @@ export default function DashboardPage() {
           </TabsContent>
 
           {/* =========================================================================
-              ABA 3: PERFIL DO NEGÓCIO
+              ABA 3: PERFIL DO NEGÓCIO & CONFIGURAÇÃO DE IA (BYOK)
              ========================================================================= */}
-          <TabsContent value="profile" className="space-y-4">
-            <Card className="bg-[#1E1B4B] border border-[#E5E5E5]/15 p-6 rounded-2xl shadow-xl max-w-2xl mx-auto space-y-4">
-              <div className="flex items-center gap-3 border-b border-[#E5E5E5]/10 pb-4">
-                <div className="w-10 h-10 rounded-xl bg-[#000000] border border-[#FFB020]/40 flex items-center justify-center">
-                  <Building2 className="w-5 h-5 text-[#FFB020]" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">Configurações da Marca</h3>
-                  <p className="text-xs text-[#E5E5E5]/70">Estes dados orientam o motor de inteligência artificial em todas as pautas.</p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label className="text-xs text-white">Nome da Empresa</Label>
-                  <Input
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-10 focus-visible:ring-[#FFB020]"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs text-white">Nicho de Atuação</Label>
-                  <Input
-                    value={niche}
-                    onChange={(e) => setNiche(e.target.value)}
-                    className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-10 focus-visible:ring-[#FFB020]"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs text-white">Tom de Voz Padrão</Label>
-                  <Input
-                    value={toneOfVoice}
-                    onChange={(e) => setToneOfVoice(e.target.value)}
-                    className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-10 focus-visible:ring-[#FFB020]"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2 flex justify-end">
-                <Button
-                  onClick={() => {
-                    if (typeof window !== "undefined") {
-                      localStorage.setItem("gera_pauta_company_name", companyName);
-                      localStorage.setItem("gera_pauta_niche", niche);
-                    }
-                    toast.success("Dados da empresa atualizados com sucesso!");
-                  }}
-                  className="bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-bold text-xs h-9 px-4 rounded-xl cursor-pointer"
-                >
-                  Salvar Alterações
-                </Button>
-              </div>
-            </Card>
-          </TabsContent>
-
-          {/* =========================================================================
-              ABA 4: PLANOS & CHAVE DE IA (BYOK)
-             ========================================================================= */}
-          <TabsContent value="billing" className="space-y-6">
+          <TabsContent value="profile" className="space-y-6">
             <div className="max-w-4xl mx-auto space-y-6">
-              {/* Card de Controle de Quota */}
-              <Card className="bg-[#1E1B4B] border border-[#E5E5E5]/15 p-6 rounded-2xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-[#FFB020]" />
-                    Status da sua Degustação Gratuita
-                  </h3>
-                  <p className="text-xs text-[#E5E5E5]/70">
-                    Você utilizou <strong>{usedPitches}</strong> de <strong>{maxFreePitches}</strong> pautas gratuitas.
-                  </p>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleResetQuota}
-                    className="text-[11px] text-[#FFB020] hover:underline p-0 h-auto cursor-pointer"
-                  >
-                    🔄 Restaurar saldo de 5 pautas para continuar testando
-                  </Button>
+              {/* Card 1: Configurações da Marca */}
+              <Card className="bg-[#1E1B4B] border border-[#E5E5E5]/15 p-6 rounded-2xl shadow-xl space-y-4">
+                <div className="flex items-center gap-3 border-b border-[#E5E5E5]/10 pb-4">
+                  <div className="w-10 h-10 rounded-xl bg-[#000000] border border-[#FFB020]/40 flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-[#FFB020]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Configurações da Marca</h3>
+                    <p className="text-xs text-[#E5E5E5]/70">Estes dados orientam o motor de inteligência artificial em todas as pautas.</p>
+                  </div>
                 </div>
-                <div className="w-full sm:w-48 bg-[#000000] h-2.5 rounded-full overflow-hidden border border-[#E5E5E5]/20">
-                  <div
-                    className="h-full bg-[#FFB020]"
-                    style={{ width: `${(usedPitches / maxFreePitches) * 100}%` }}
-                  />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-white">Nome da Empresa</Label>
+                    <Input
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-10 focus-visible:ring-[#FFB020]"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-white">Nicho de Atuação</Label>
+                    <Input
+                      value={niche}
+                      onChange={(e) => setNiche(e.target.value)}
+                      className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-10 focus-visible:ring-[#FFB020]"
+                    />
+                  </div>
+
+                  <div className="space-y-1 md:col-span-2">
+                    <Label className="text-xs text-white">Tom de Voz Padrão</Label>
+                    <Input
+                      value={toneOfVoice}
+                      onChange={(e) => setToneOfVoice(e.target.value)}
+                      className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-10 focus-visible:ring-[#FFB020]"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <Button
+                    onClick={() => {
+                      if (typeof window !== "undefined") {
+                        localStorage.setItem("gera_pauta_company_name", companyName);
+                        localStorage.setItem("gera_pauta_niche", niche);
+                        localStorage.setItem("gera_pauta_tone_of_voice", toneOfVoice);
+                      }
+                      toast.success("✨ Dados da empresa atualizados com sucesso!");
+                    }}
+                    className="bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-bold text-xs h-9 px-4 rounded-xl cursor-pointer"
+                  >
+                    Salvar Alterações da Marca
+                  </Button>
                 </div>
               </Card>
 
-              {/* Tabela de Planos Comerciais */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Plano Gratuito */}
-                <Card className="bg-[#1E1B4B]/60 border border-[#E5E5E5]/15 p-6 rounded-2xl space-y-4">
-                  <div className="space-y-1">
-                    <span className="text-xs text-[#E5E5E5]/60 font-semibold uppercase">Degustação</span>
-                    <h4 className="text-xl font-black text-white">Plano Grátis</h4>
-                    <span className="text-2xl font-black text-white">R$ 0</span>
-                  </div>
-                  <ul className="text-xs text-[#E5E5E5]/80 space-y-2">
-                    <li>✓ 5 pautas estruturadas para teste</li>
-                    <li>✓ Acesso ao gerador multicanal</li>
-                    <li>✓ 2 opções de headline da arte</li>
-                  </ul>
-                  <Button disabled variant="outline" className="w-full border-[#E5E5E5]/20 text-[#E5E5E5] text-xs h-10 rounded-xl">
-                    Plano Atual
-                  </Button>
-                </Card>
-
-                {/* Plano PRO (Recomendado) */}
-                <Card className="bg-[#1E1B4B] border-2 border-[#FFB020] p-6 rounded-2xl space-y-4 relative shadow-2xl">
-                  <div className="absolute top-3 right-3">
-                    <Badge className="bg-[#FFB020] text-black font-extrabold text-[10px]">RECOMENDADO</Badge>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs text-[#FFB020] font-semibold uppercase">Ilimitado & Comercial</span>
-                    <h4 className="text-xl font-black text-white">Plano Pro</h4>
-                    <span className="text-2xl font-black text-white">R$ 47 <span className="text-xs font-normal text-[#E5E5E5]/60">/mês</span></span>
-                  </div>
-                  <ul className="text-xs text-[#E5E5E5]/80 space-y-2">
-                    <li>✓ Pautas ilimitadas com IA inclusa</li>
-                    <li>✓ Múltiplos clientes e nichos</li>
-                    <li>✓ Refazer pauta ilimitado</li>
-                    <li>✓ Suporte prioritário via WhatsApp</li>
-                  </ul>
-                  <Button
-                    disabled={isStartingCheckout || isPro}
-                    onClick={handleStartCheckout}
-                    className="w-full bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-black text-xs h-10 rounded-xl shadow-lg shadow-[#FFB020]/20 cursor-pointer"
-                  >
-                    {isStartingCheckout ? (
-                      <span className="flex items-center gap-1.5">
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Conectando ao Checkout...
-                      </span>
-                    ) : isPro ? (
-                      "Plano PRO Ativo 👑"
-                    ) : (
-                      "Assinar Plano Pro Agora"
-                    )}
-                  </Button>
-                </Card>
-              </div>
-
-              {/* =========================================================================
-                  FEATURE 5: POTENCIALIZADOR COM CHAVE DE IA DO USUÁRIO (BYOK)
-                 ========================================================================= */}
+              {/* Card 2: Potencializador com Chave de IA do Usuário (BYOK) */}
               <Card className="bg-[#1E1B4B] border border-[#E5E5E5]/15 p-6 rounded-2xl shadow-xl space-y-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#E5E5E5]/10 pb-4">
                   <div className="flex items-center gap-3">
@@ -1298,10 +1267,10 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <h4 className="text-base font-bold text-white flex items-center gap-2">
-                        Potencializador com Chave Própria (BYOK)
+                        Chave Própria do Google Gemini (BYOK)
                         {savedMaskedKey ? (
                           <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold">
-                            🟢 Conectada & Ilimitada
+                            🟢 Conectada & Ativa
                           </Badge>
                         ) : (
                           <Badge className="bg-[#000000] text-[#E5E5E5]/70 border border-[#E5E5E5]/20 text-[10px]">
@@ -1310,7 +1279,7 @@ export default function DashboardPage() {
                         )}
                       </h4>
                       <p className="text-xs text-[#E5E5E5]/70">
-                        Conecte sua chave gratuita do Google AI Studio para autonomia total e gerações sem consumir a cota do servidor.
+                        Conecte sua chave gratuita do Google AI Studio para autonomia adicional e gerações diretas com sua API.
                       </p>
                     </div>
                   </div>
@@ -1409,7 +1378,7 @@ export default function DashboardPage() {
                 {/* Passo a Passo Ilustrado (Em menos de 1 minuto) */}
                 <div className="p-4 bg-[#000000]/40 rounded-xl border border-[#E5E5E5]/10 space-y-3">
                   <span className="text-xs font-bold text-[#FFB020] uppercase tracking-wider block">
-                    📖 Passo a Passo: Como obter sua chave gratuita no Google AI Studio em 1 minuto
+                    📖 Como obter sua chave gratuita no Google AI Studio em 1 minuto
                   </span>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1450,6 +1419,196 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </Card>
+            </div>
+          </TabsContent>
+
+          {/* =========================================================================
+              ABA 4: PLANOS & ASSINATURA
+             ========================================================================= */}
+          <TabsContent value="billing" className="space-y-6">
+            <div className="max-w-4xl mx-auto space-y-6">
+              {isPro ? (
+                /* ================= VISÃO PARA ASSINANTE PRO ATIVO ================= */
+                <div className="space-y-6">
+                  {/* Card de Status da Assinatura PRO */}
+                  <Card className="bg-gradient-to-br from-[#1E1B4B] to-[#0D0C1D] border-2 border-[#FFB020] p-6 sm:p-8 rounded-2xl shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFB020]/5 rounded-full blur-3xl pointer-events-none" />
+
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#E5E5E5]/10 pb-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-2xl bg-[#000000] border-2 border-[#FFB020] flex items-center justify-center text-2xl shadow-lg">
+                          👑
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-xl font-black text-white">Plano PRO Ativo</h3>
+                            <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-xs font-bold">
+                              ✓ Assinatura Ativa
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-[#E5E5E5]/70">
+                            Você tem acesso completo e ilimitado a todas as ferramentas do Gera Pauta.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-left sm:text-right">
+                        <span className="text-[11px] text-[#E5E5E5]/60 uppercase block font-semibold">Valor do Plano</span>
+                        <span className="text-2xl font-black text-[#FFB020]">R$ 47 <span className="text-xs text-[#E5E5E5]/70 font-normal">/mês</span></span>
+                      </div>
+                    </div>
+
+                    {/* Vantagens Ativas */}
+                    <div className="pt-6 space-y-3">
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">Benefícios Liberados no seu Plano:</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-[#E5E5E5]/90">
+                        <div className="flex items-center gap-2 bg-[#000000]/40 p-3 rounded-xl border border-[#E5E5E5]/10">
+                          <CheckCircle2 className="w-4 h-4 text-[#FFB020] shrink-0" />
+                          <span><strong>Pautas Ilimitadas:</strong> Sem travas de degustação de 5 pautas.</span>
+                        </div>
+                        <div className="flex items-center gap-2 bg-[#000000]/40 p-3 rounded-xl border border-[#E5E5E5]/10">
+                          <CheckCircle2 className="w-4 h-4 text-[#FFB020] shrink-0" />
+                          <span><strong>Refinador com IA:</strong> Ajuste qualquer pauta com instruções naturais.</span>
+                        </div>
+                        <div className="flex items-center gap-2 bg-[#000000]/40 p-3 rounded-xl border border-[#E5E5E5]/10">
+                          <CheckCircle2 className="w-4 h-4 text-[#FFB020] shrink-0" />
+                          <span><strong>4 Redes Sociais:</strong> Instagram, LinkedIn, WhatsApp e TikTok.</span>
+                        </div>
+                        <div className="flex items-center gap-2 bg-[#000000]/40 p-3 rounded-xl border border-[#E5E5E5]/10">
+                          <CheckCircle2 className="w-4 h-4 text-[#FFB020] shrink-0" />
+                          <span><strong>2 Headlines de Arte:</strong> Gancho provocativo + autoridade em cada pauta.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* Card de Autoatendimento e Cancelamento Autônomo */}
+                  <Card className="bg-[#1E1B4B] border border-[#E5E5E5]/15 p-6 rounded-2xl shadow-xl space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-[#000000] border border-[#FFB020]/40 flex items-center justify-center text-[#FFB020]">
+                        <ShieldCheck className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-base font-bold text-white">Gerenciar Assinatura & Cancelamento</h4>
+                        <p className="text-xs text-[#E5E5E5]/70">
+                          Controle autônomo e transparente do seu plano através do portal oficial e seguro da Stripe.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-[#000000]/40 rounded-xl border border-[#E5E5E5]/10 space-y-3">
+                      <p className="text-xs text-[#E5E5E5]/80 leading-relaxed">
+                        No portal da Stripe você pode a qualquer momento:
+                      </p>
+                      <ul className="text-xs text-[#E5E5E5]/70 space-y-1 list-disc pl-5">
+                        <li><strong>Trocar ou atualizar cartão de crédito</strong> utilizado na assinatura</li>
+                        <li><strong>Baixar faturas e comprovantes</strong> de pagamentos anteriores</li>
+                        <li><strong>Cancelar sua assinatura com 1 clique</strong> (sem multas, perguntas ou pegadinhas)</li>
+                      </ul>
+
+                      <div className="pt-2">
+                        <Button
+                          onClick={handleOpenCustomerPortal}
+                          disabled={isLoadingPortal}
+                          className="bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-extrabold text-xs h-10 px-5 rounded-xl shadow-lg shadow-[#FFB020]/20 cursor-pointer flex items-center gap-2"
+                        >
+                          {isLoadingPortal ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Conectando ao Portal...
+                            </>
+                          ) : (
+                            <>
+                              <ExternalLink className="w-3.5 h-3.5" /> Abrir Portal de Gerenciamento / Cancelamento
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              ) : (
+                /* ================= VISÃO PARA USUÁRIO GRÁTIS / DEGUSTAÇÃO ================= */
+                <>
+                  {/* Card de Controle de Quota */}
+                  <Card className="bg-[#1E1B4B] border border-[#E5E5E5]/15 p-6 rounded-2xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-[#FFB020]" />
+                        Status da sua Degustação Gratuita
+                      </h3>
+                      <p className="text-xs text-[#E5E5E5]/70">
+                        Você utilizou <strong>{usedPitches}</strong> de <strong>{maxFreePitches}</strong> pautas gratuitas.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleResetQuota}
+                        className="text-[11px] text-[#FFB020] hover:underline p-0 h-auto cursor-pointer"
+                      >
+                        🔄 Restaurar saldo de 5 pautas para continuar testando
+                      </Button>
+                    </div>
+                    <div className="w-full sm:w-48 bg-[#000000] h-2.5 rounded-full overflow-hidden border border-[#E5E5E5]/20">
+                      <div
+                        className="h-full bg-[#FFB020]"
+                        style={{ width: `${(usedPitches / maxFreePitches) * 100}%` }}
+                      />
+                    </div>
+                  </Card>
+
+                  {/* Tabela de Planos Comerciais */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Plano Gratuito */}
+                    <Card className="bg-[#1E1B4B]/60 border border-[#E5E5E5]/15 p-6 rounded-2xl space-y-4">
+                      <div className="space-y-1">
+                        <span className="text-xs text-[#E5E5E5]/60 font-semibold uppercase">Degustação</span>
+                        <h4 className="text-xl font-black text-white">Plano Grátis</h4>
+                        <span className="text-2xl font-black text-white">R$ 0</span>
+                      </div>
+                      <ul className="text-xs text-[#E5E5E5]/80 space-y-2">
+                        <li>✓ 5 pautas estruturadas para teste</li>
+                        <li>✓ Acesso ao gerador multicanal</li>
+                        <li>✓ 2 opções de headline da arte</li>
+                      </ul>
+                      <Button disabled variant="outline" className="w-full border-[#E5E5E5]/20 text-[#E5E5E5] text-xs h-10 rounded-xl">
+                        Plano Atual
+                      </Button>
+                    </Card>
+
+                    {/* Plano PRO (Recomendado) */}
+                    <Card className="bg-[#1E1B4B] border-2 border-[#FFB020] p-6 rounded-2xl space-y-4 relative shadow-2xl">
+                      <div className="absolute top-3 right-3">
+                        <Badge className="bg-[#FFB020] text-black font-extrabold text-[10px]">RECOMENDADO</Badge>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-xs text-[#FFB020] font-semibold uppercase">Ilimitado & Comercial</span>
+                        <h4 className="text-xl font-black text-white">Plano Pro</h4>
+                        <span className="text-2xl font-black text-white">R$ 47 <span className="text-xs font-normal text-[#E5E5E5]/60">/mês</span></span>
+                      </div>
+                      <ul className="text-xs text-[#E5E5E5]/80 space-y-2">
+                        <li>✓ Pautas ilimitadas com IA inclusa</li>
+                        <li>✓ Múltiplos clientes e nichos</li>
+                        <li>✓ Refazer e ajustar pautas com IA</li>
+                        <li>✓ Suporte prioritário via WhatsApp</li>
+                      </ul>
+                      <Button
+                        disabled={isStartingCheckout}
+                        onClick={handleStartCheckout}
+                        className="w-full bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-black text-xs h-10 rounded-xl shadow-lg shadow-[#FFB020]/20 cursor-pointer"
+                      >
+                        {isStartingCheckout ? (
+                          <span className="flex items-center gap-1.5">
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Conectando ao Checkout...
+                          </span>
+                        ) : (
+                          "Assinar Plano Pro Agora"
+                        )}
+                      </Button>
+                    </Card>
+                  </div>
+                </>
+              )}
             </div>
           </TabsContent>
         </Tabs>
@@ -1512,7 +1671,7 @@ export default function DashboardPage() {
                 <Button
                   onClick={() => {
                     setIsQuotaModalOpen(false);
-                    setActiveTab("billing");
+                    setActiveTab("profile");
                   }}
                   variant="outline"
                   className="w-full border-[#E5E5E5]/20 text-[#E5E5E5] hover:text-white hover:border-[#FFB020] text-xs h-9 rounded-lg cursor-pointer"
