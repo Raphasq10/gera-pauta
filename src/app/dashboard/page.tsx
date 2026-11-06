@@ -459,6 +459,32 @@ export default function DashboardPage() {
     }
   };
 
+  // Feature 6.2: Cancelamento Direto no App (Sem depender de redirecionamento externo)
+  const [isCancellingSub, setIsCancellingSub] = useState<boolean>(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState<boolean>(false);
+
+  const handleCancelSubscription = async () => {
+    setIsCancellingSub(true);
+    try {
+      const res = await fetch("/api/checkout/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setIsPro(false);
+        setIsCancelDialogOpen(false);
+        toast.success(data.message || "Assinatura cancelada com sucesso!");
+      } else {
+        toast.error(data.error || "Erro ao processar cancelamento.");
+      }
+    } catch {
+      toast.error("Erro de conexão ao processar cancelamento.");
+    } finally {
+      setIsCancellingSub(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
@@ -1506,7 +1532,7 @@ export default function DashboardPage() {
                         <li><strong>Cancelar sua assinatura com 1 clique</strong> (sem multas, perguntas ou pegadinhas)</li>
                       </ul>
 
-                      <div className="pt-2">
+                      <div className="pt-2 flex flex-wrap items-center gap-3">
                         <Button
                           onClick={handleOpenCustomerPortal}
                           disabled={isLoadingPortal}
@@ -1518,13 +1544,61 @@ export default function DashboardPage() {
                             </>
                           ) : (
                             <>
-                              <ExternalLink className="w-3.5 h-3.5" /> Abrir Portal de Gerenciamento / Cancelamento
+                              <ExternalLink className="w-3.5 h-3.5" /> Abrir Portal Stripe (Cartões & Faturas)
                             </>
                           )}
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsCancelDialogOpen(true)}
+                          className="border-rose-500/40 text-rose-400 hover:bg-rose-500/10 hover:border-rose-500 text-xs h-10 px-4 rounded-xl cursor-pointer"
+                        >
+                          Cancelar Plano Diretamente
                         </Button>
                       </div>
                     </div>
                   </Card>
+
+                  {/* Modal de Confirmação de Cancelamento Direto */}
+                  <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+                    <DialogContent className="bg-[#1E1B4B] border border-rose-500/40 text-white max-w-md p-6 rounded-2xl shadow-2xl">
+                      <DialogHeader className="space-y-2">
+                        <div className="w-12 h-12 rounded-2xl bg-[#000000] border border-rose-500/50 flex items-center justify-center mx-auto text-rose-400 shadow-lg">
+                          <AlertCircle className="w-6 h-6" />
+                        </div>
+                        <DialogTitle className="text-lg font-black text-center text-white">
+                          Deseja cancelar sua assinatura PRO?
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-[#E5E5E5]/80 text-center leading-relaxed">
+                          Ao confirmar, sua assinatura do Plano PRO será cancelada na Stripe e sua conta voltará ao plano gratuito de testes.
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <div className="flex gap-2 pt-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsCancelDialogOpen(false)}
+                          className="flex-1 border-[#E5E5E5]/20 text-[#E5E5E5] hover:text-white text-xs h-10 rounded-xl"
+                        >
+                          Voltar / Manter PRO
+                        </Button>
+                        <Button
+                          disabled={isCancellingSub}
+                          onClick={handleCancelSubscription}
+                          className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs h-10 rounded-xl shadow-lg cursor-pointer"
+                        >
+                          {isCancellingSub ? (
+                            <span className="flex items-center gap-1.5 justify-center">
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Cancelando...
+                            </span>
+                          ) : (
+                            "Sim, Cancelar Plano"
+                          )}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               ) : (
                 /* ================= VISÃO PARA USUÁRIO GRÁTIS / DEGUSTAÇÃO ================= */
