@@ -1,239 +1,400 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Sparkles, ArrowRight, ShieldCheck, Mail, Lock, RefreshCw } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Sparkles, ArrowRight, ShieldCheck, Mail, Lock, RefreshCw, KeyRound, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
+import { 
+  loginSchema, 
+  signUpSchema, 
+  resetPasswordSchema, 
+  type LoginInput, 
+  type SignUpInput,
+  type ResetPasswordInput
+} from "@/lib/schemas/auth";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTarget = searchParams.get("redirect") || "/dashboard";
+
+  // Modo: Login ou Cadastro
   const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [emailSentNotice, setEmailSentNotice] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // 1. React Hook Form para Login (validação instantânea com Zod)
+  const loginForm = useForm<LoginInput>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+    mode: "onBlur",
+  });
 
-    if (!email || !email.includes("@")) {
-      toast.error("Por favor, insira um e-mail válido.");
-      return;
-    }
+  // 2. React Hook Form para Cadastro
+  const signUpForm = useForm<SignUpInput>({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      companyName: "",
+      email: "",
+      password: "",
+    },
+    mode: "onBlur",
+  });
 
-    if (password.length < 6) {
-      toast.error("A senha deve ter pelo menos 6 caracteres.");
-      return;
-    }
+  // 3. React Hook Form para Recuperação de Senha
+  const resetForm = useForm<ResetPasswordInput>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: {
+      email: "",
+    },
+    mode: "onBlur",
+  });
 
-    setLoading(true);
-
+  // ============================================================================
+  // SUBMISSÃO DE LOGIN (CLIENTE + SESSÃO SEGURA)
+  // ============================================================================
+  const onLoginSubmit = async (data: LoginInput) => {
     try {
-      if (isSignUp) {
-        // CADASTRO NO SUPABASE AUTH
-        const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password,
-          options: {
-            data: {
-              company_name: companyName.trim() || undefined,
-              full_name: companyName.trim() || undefined
-            }
-          }
-        });
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
 
-        if (error) {
-          toast.error(error.message || "Falha ao criar conta. Tente novamente.");
-          return;
+      if (error) {
+        if (error.message.toLowerCase().includes("invalid login credentials")) {
+          toast.error("E-mail ou senha incorretos. Verifique suas credenciais.");
+        } else if (error.message.toLowerCase().includes("email not confirmed")) {
+          toast.error("Por favor, confirme seu e-mail para acessar a conta.");
+          setEmailSentNotice(data.email);
+        } else {
+          toast.error(error.message || "Falha ao realizar login.");
         }
-
-        toast.success("Conta criada com sucesso no Supabase! Bem-vindo(a).");
-        
-        if (typeof window !== "undefined") {
-          localStorage.setItem("gera_pauta_user_email", email.trim());
-          if (companyName) {
-            localStorage.setItem("gera_pauta_company_name", companyName.trim());
-          }
-        }
-
-        router.push("/onboarding");
-      } else {
-        // LOGIN NO SUPABASE AUTH
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password
-        });
-
-        if (error) {
-          toast.error(error.message === "Invalid login credentials" 
-            ? "E-mail ou senha incorretos." 
-            : error.message);
-          return;
-        }
-
-        toast.success("Login realizado com sucesso!");
-        
-        if (typeof window !== "undefined") {
-          localStorage.setItem("gera_pauta_user_email", email.trim());
-        }
-
-        router.push("/dashboard");
+        return;
       }
-    } catch (err: any) {
-      toast.error("Erro inesperado na autenticação. Tente novamente.");
-    } finally {
-      setLoading(false);
+
+      toast.success("Login realizado com sucesso! Redirecionando...");
+      
+      if (typeof window !== "undefined") {
+        localStorage.setItem("gera_pauta_user_email", data.email);
+      }
+
+      router.push(redirectTarget);
+      router.refresh();
+    } catch {
+      toast.error("Falha na conexão com o servidor. Verifique sua internet.");
     }
   };
 
+  // ============================================================================
+  // SUBMISSÃO DE CADASTRO (SUPABASE AUTH DIRETO)
+  // ============================================================================
+  const onSignUpSubmit = async (data: SignUpInput) => {
+    try {
+      const { data: authData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            company_name: data.companyName || undefined,
+            full_name: data.companyName || undefined,
+          },
+        },
+      });
+
+      if (error) {
+        if (error.message.toLowerCase().includes("user already registered")) {
+          toast.error("Este e-mail já está cadastrado. Tente fazer login.");
+        } else if (error.message.toLowerCase().includes("rate limit") || error.message.toLowerCase().includes("security purposes")) {
+          toast.error("Muitas tentativas em pouco tempo. Aguarde 60 segundos.");
+        } else {
+          toast.error(error.message || "Falha ao criar conta.");
+        }
+        return;
+      }
+
+      // Se o Supabase retornou sessão ativa (confirmação de email desativada)
+      if (authData.session) {
+        toast.success("Conta criada com sucesso! Bem-vindo(a) ao Gera Pauta.");
+        if (typeof window !== "undefined") {
+          localStorage.setItem("gera_pauta_user_email", data.email);
+          if (data.companyName) {
+            localStorage.setItem("gera_pauta_company_name", data.companyName);
+          }
+        }
+        router.push("/onboarding");
+        router.refresh();
+      } else {
+        // Se o Supabase exige confirmação de email
+        toast.success("Conta criada! Enviamos um link de ativação para seu e-mail.");
+        setEmailSentNotice(data.email);
+      }
+    } catch {
+      toast.error("Falha ao criar conta. Tente novamente.");
+    }
+  };
+
+  // ============================================================================
+  // RECUPERAÇÃO DE SENHA
+  // ============================================================================
+  const onResetSubmit = async (data: ResetPasswordInput) => {
+    setIsResetting(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(data.email);
+      if (error) {
+        toast.error(error.message || "Não foi possível enviar o e-mail.");
+        return;
+      }
+
+      toast.success("E-mail de recuperação enviado! Verifique sua caixa de entrada.");
+      setIsResetModalOpen(false);
+      resetForm.reset();
+    } catch {
+      toast.error("Erro ao solicitar redefinição. Tente novamente.");
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  // Login Social com Google OAuth
   const handleGoogleLogin = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: typeof window !== "undefined" ? `${window.location.origin}/dashboard` : undefined
-        }
+          redirectTo: typeof window !== "undefined" 
+            ? `${window.location.origin}/dashboard` 
+            : undefined,
+        },
       });
       if (error) toast.error(error.message);
-    } catch (err: any) {
+    } catch {
       toast.error("Erro ao iniciar login com Google.");
     }
   };
 
+  const isSubmitting = loginForm.formState.isSubmitting || signUpForm.formState.isSubmitting;
+
   return (
-    <div className="min-h-screen bg-[#000000] text-white flex flex-col justify-center items-center px-4 py-12 selection:bg-[#FCA311]/30">
+    <div className="min-h-screen bg-[#050914] text-white flex flex-col justify-center items-center px-4 py-12 selection:bg-[#FCA311]/30">
+      
       {/* Botão de voltar para a Home */}
       <div className="w-full max-w-md mb-6">
         <Link 
           href="/" 
-          className="text-xs text-[#E5E5E5]/70 hover:text-[#FCA311] transition-colors flex items-center gap-1.5 inline-flex"
+          className="text-xs text-slate-400 hover:text-[#FCA311] transition-colors flex items-center gap-1.5 inline-flex font-medium"
         >
           ← Voltar para a página inicial
         </Link>
       </div>
 
-      <Card className="w-full max-w-md bg-[#14213D] border border-[#E5E5E5]/15 p-6 sm:p-8 rounded-2xl shadow-2xl relative overflow-hidden backdrop-blur">
-        {/* Glow de destaque no topo do card */}
+      <Card className="w-full max-w-md bg-[#14213D] border border-slate-700/80 p-6 sm:p-8 rounded-2xl shadow-2xl relative overflow-hidden backdrop-blur">
+        {/* Glow de destaque no topo */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#14213D] via-[#FCA311] to-[#14213D]" />
 
-        {/* Cabeçalho do Card */}
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-[#000000] border border-[#FCA311]/30 mx-auto flex items-center justify-center mb-3 shadow-lg">
+        {/* Cabeçalho */}
+        <div className="text-center mb-6">
+          <div className="w-12 h-12 rounded-xl bg-[#050914] border border-[#FCA311]/40 mx-auto flex items-center justify-center mb-3 shadow-lg">
             <Sparkles className="w-6 h-6 text-[#FCA311]" />
           </div>
           <h1 className="text-2xl font-black tracking-tight text-white">
-            {isSignUp ? "Crie sua conta no Gera Pauta" : "Bem-vindo(a) de volta"}
+            {isSignUp ? "Crie sua conta gratuita" : "Bem-vindo(a) de volta"}
           </h1>
-          <p className="text-xs text-[#E5E5E5]/80 mt-1.5">
+          <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">
             {isSignUp
-              ? "Experimente 5 pautas estratégicas gratuitas para o seu negócio."
-              : "Acesse suas marcas, personas e histórico de conteúdo."}
+              ? "Experimente 5 pautas estratégicas com Mote, Arte do Canva e Legenda sem cartão."
+              : "Acesse suas marcas, personas salvas e histórico de conteúdo."}
           </p>
         </div>
 
-        {/* Formulário de Acesso */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {isSignUp && (
-            <div className="space-y-1.5">
-              <Label htmlFor="companyName">Nome da sua Empresa ou Agência</Label>
-              <Input
-                id="companyName"
-                type="text"
-                maxLength={100}
-                placeholder="Ex: Clínica Sorriso / Hamburgueria Grill"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white placeholder:text-[#E5E5E5]/40 focus-visible:ring-[#FCA311] text-sm h-11"
-              />
+        {/* ALERTA DE E-MAIL ENVIADO (SE CONFIRMAÇÃO ESTIVER ATIVA NO SUPABASE) */}
+        {emailSentNotice && (
+          <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs space-y-2">
+            <div className="flex items-center gap-2 font-bold text-amber-300">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>Quase lá! Ative sua conta</span>
             </div>
-          )}
-
-          <div className="space-y-1.5">
-            <Label htmlFor="email">E-mail Profissional</Label>
-            <div className="relative">
-              <Mail className="w-4 h-4 text-[#E5E5E5]/50 absolute left-3 top-3.5" />
-              <Input
-                id="email"
-                type="email"
-                required
-                maxLength={255}
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white placeholder:text-[#E5E5E5]/40 pl-9 focus-visible:ring-[#FCA311] text-sm h-11"
-              />
+            <p className="leading-relaxed">
+              Enviamos um link de confirmação para <strong>{emailSentNotice}</strong>. Acesse seu e-mail e clique no link para liberar seu acesso instantâneo.
+            </p>
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setEmailSentNotice(null);
+                  setIsSignUp(false);
+                }}
+                className="text-[11px] text-[#FCA311] underline font-bold cursor-pointer"
+              >
+                Já confirmei, quero fazer login ➔
+              </button>
             </div>
           </div>
+        )}
 
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">Senha</Label>
-              {!isSignUp && (
+        {/* FORMULÁRIO DE LOGIN */}
+        {!isSignUp ? (
+          <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="login-email">E-mail Profissional</Label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+                <Input
+                  id="login-email"
+                  type="email"
+                  maxLength={255}
+                  placeholder="seu@email.com"
+                  {...loginForm.register("email")}
+                  className="bg-[#050914] border-slate-700 text-white placeholder:text-slate-500 pl-9 focus-visible:ring-[#FCA311] text-sm h-11"
+                />
+              </div>
+              {loginForm.formState.errors.email && (
+                <p className="text-[11px] text-rose-400 font-medium">
+                  {loginForm.formState.errors.email.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="login-password">Senha de Acesso</Label>
                 <button
                   type="button"
-                  onClick={async () => {
-                    if (!email) {
-                      toast.error("Digite seu e-mail no campo acima para recuperar a senha.");
-                      return;
-                    }
-                    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
-                    if (error) toast.error(error.message);
-                    else toast.success("Link de redefinição de senha enviado para seu e-mail!");
-                  }}
-                  className="text-[11px] text-[#FCA311] hover:underline"
+                  onClick={() => setIsResetModalOpen(true)}
+                  className="text-[11px] text-[#FCA311] hover:underline cursor-pointer font-medium"
                 >
                   Esqueceu a senha?
                 </button>
+              </div>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+                <Input
+                  id="login-password"
+                  type="password"
+                  maxLength={100}
+                  placeholder="••••••••"
+                  {...loginForm.register("password")}
+                  className="bg-[#050914] border-slate-700 text-white placeholder:text-slate-500 pl-9 focus-visible:ring-[#FCA311] text-sm h-11"
+                />
+              </div>
+              {loginForm.formState.errors.password && (
+                <p className="text-[11px] text-rose-400 font-medium">
+                  {loginForm.formState.errors.password.message}
+                </p>
               )}
             </div>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-[#E5E5E5]/50 absolute left-3 top-3.5" />
+
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-[#FCA311] hover:bg-[#FCA311]/90 text-black font-extrabold h-11 text-sm rounded-xl transition-all shadow-lg shadow-[#FCA311]/20 cursor-pointer mt-2"
+            >
+              {isSubmitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Verificando credenciais...
+                </span>
+              ) : (
+                "Entrar na Plataforma"
+              )}
+            </Button>
+          </form>
+        ) : (
+          /* FORMULÁRIO DE CADASTRO */
+          <form onSubmit={signUpForm.handleSubmit(onSignUpSubmit)} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="signup-company">Nome da sua Empresa ou Agência (Opcional)</Label>
               <Input
-                id="password"
-                type="password"
-                required
-                minLength={6}
+                id="signup-company"
+                type="text"
                 maxLength={100}
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white placeholder:text-[#E5E5E5]/40 pl-9 focus-visible:ring-[#FCA311] text-sm h-11"
+                placeholder="Ex: Clínica Sorriso / Hamburgueria Grill"
+                {...signUpForm.register("companyName")}
+                className="bg-[#050914] border-slate-700 text-white placeholder:text-slate-500 focus-visible:ring-[#FCA311] text-sm h-11"
               />
+              {signUpForm.formState.errors.companyName && (
+                <p className="text-[11px] text-rose-400 font-medium">
+                  {signUpForm.formState.errors.companyName.message}
+                </p>
+              )}
             </div>
-          </div>
 
-          <Button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-[#FCA311] hover:bg-[#FCA311]/90 text-black font-bold h-11 text-sm rounded-xl transition-all shadow-lg shadow-[#FCA311]/20 cursor-pointer mt-2"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <RefreshCw className="w-4 h-4 animate-spin" /> Conectando ao Supabase...
-              </span>
-            ) : isSignUp ? (
-              <span className="flex items-center justify-center gap-2">
-                Criar Conta Gratuita <ArrowRight className="w-4 h-4" />
-              </span>
-            ) : (
-              "Entrar na Plataforma"
-            )}
-          </Button>
-        </form>
+            <div className="space-y-1.5">
+              <Label htmlFor="signup-email">E-mail Profissional</Label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+                <Input
+                  id="signup-email"
+                  type="email"
+                  maxLength={255}
+                  placeholder="seu@email.com"
+                  {...signUpForm.register("email")}
+                  className="bg-[#050914] border-slate-700 text-white placeholder:text-slate-500 pl-9 focus-visible:ring-[#FCA311] text-sm h-11"
+                />
+              </div>
+              {signUpForm.formState.errors.email && (
+                <p className="text-[11px] text-rose-400 font-medium">
+                  {signUpForm.formState.errors.email.message}
+                </p>
+              )}
+            </div>
 
-        {/* Divisor Visual */}
+            <div className="space-y-1.5">
+              <Label htmlFor="signup-password">Crie uma Senha Segura (mínimo 6 dígitos)</Label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+                <Input
+                  id="signup-password"
+                  type="password"
+                  maxLength={100}
+                  placeholder="••••••••"
+                  {...signUpForm.register("password")}
+                  className="bg-[#050914] border-slate-700 text-white placeholder:text-slate-500 pl-9 focus-visible:ring-[#FCA311] text-sm h-11"
+                />
+              </div>
+              {signUpForm.formState.errors.password && (
+                <p className="text-[11px] text-rose-400 font-medium">
+                  {signUpForm.formState.errors.password.message}
+                </p>
+              )}
+            </div>
+
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-[#FCA311] hover:bg-[#FCA311]/90 text-black font-extrabold h-11 text-sm rounded-xl transition-all shadow-lg shadow-[#FCA311]/20 cursor-pointer mt-2"
+            >
+              {isSubmitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Criando sua conta...
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  Criar Minha Conta Grátis <ArrowRight className="w-4 h-4" />
+                </span>
+              )}
+            </Button>
+          </form>
+        )}
+
+        {/* Divisor */}
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-[#E5E5E5]/15" />
+            <div className="w-full border-t border-slate-700" />
           </div>
           <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
-            <span className="bg-[#14213D] px-2 text-[#E5E5E5]/60 font-semibold">ou continue com</span>
+            <span className="bg-[#14213D] px-2 text-slate-400 font-semibold">ou continue com</span>
           </div>
         </div>
 
@@ -242,7 +403,7 @@ export default function LoginPage() {
           type="button"
           onClick={handleGoogleLogin}
           variant="outline"
-          className="w-full border-[#E5E5E5]/20 bg-[#000000]/40 text-white hover:bg-[#000000] hover:text-[#FCA311] h-11 rounded-xl text-xs font-semibold cursor-pointer gap-2"
+          className="w-full border-slate-700 bg-[#050914] text-white hover:bg-black hover:text-[#FCA311] h-11 rounded-xl text-xs font-semibold cursor-pointer gap-2"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24">
             <path
@@ -262,18 +423,21 @@ export default function LoginPage() {
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
             />
           </svg>
-          Google
+          Entrar com conta Google
         </Button>
 
-        {/* Alternador de Login / Cadastro */}
-        <div className="text-center mt-6 text-xs text-[#E5E5E5]/80">
+        {/* Alternador Login / Cadastro */}
+        <div className="text-center mt-6 text-xs text-slate-300">
           {isSignUp ? (
             <p>
               Já possui uma conta?{" "}
               <button
                 type="button"
-                onClick={() => setIsSignUp(false)}
-                className="text-[#FCA311] font-bold hover:underline"
+                onClick={() => {
+                  setIsSignUp(false);
+                  setEmailSentNotice(null);
+                }}
+                className="text-[#FCA311] font-bold hover:underline cursor-pointer"
               >
                 Fazer login
               </button>
@@ -283,8 +447,11 @@ export default function LoginPage() {
               Ainda não tem conta?{" "}
               <button
                 type="button"
-                onClick={() => setIsSignUp(true)}
-                className="text-[#FCA311] font-bold hover:underline"
+                onClick={() => {
+                  setIsSignUp(true);
+                  setEmailSentNotice(null);
+                }}
+                className="text-[#FCA311] font-bold hover:underline cursor-pointer"
               >
                 Cadastre-se grátis
               </button>
@@ -293,11 +460,83 @@ export default function LoginPage() {
         </div>
       </Card>
 
+      {/* MODAL DE RECUPERAÇÃO DE SENHA */}
+      <Dialog open={isResetModalOpen} onOpenChange={setIsResetModalOpen}>
+        <DialogContent className="bg-[#14213D] border border-slate-700 text-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-white">
+              <KeyRound className="w-5 h-5 text-[#FCA311]" /> Recuperar Acesso
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-300">
+              Digite o e-mail cadastrado. Enviaremos um link seguro para você redefinir sua senha.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={resetForm.handleSubmit(onResetSubmit)} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="reset-email">Seu E-mail Cadastrado</Label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+                <Input
+                  id="reset-email"
+                  type="email"
+                  maxLength={255}
+                  placeholder="seu@email.com"
+                  {...resetForm.register("email")}
+                  className="bg-[#050914] border-slate-700 text-white placeholder:text-slate-500 pl-9 focus-visible:ring-[#FCA311] text-sm h-11"
+                />
+              </div>
+              {resetForm.formState.errors.email && (
+                <p className="text-[11px] text-rose-400 font-medium">
+                  {resetForm.formState.errors.email.message}
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsResetModalOpen(false)}
+                className="text-xs text-slate-300 hover:text-white"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isResetting}
+                className="bg-[#FCA311] hover:bg-[#FCA311]/90 text-black font-bold text-xs h-10 px-4 rounded-xl cursor-pointer"
+              >
+                {isResetting ? (
+                  <span className="flex items-center gap-1.5">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Enviando...
+                  </span>
+                ) : (
+                  "Enviar Link de Redefinição"
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Badge de Conformidade */}
-      <div className="flex items-center gap-1.5 text-xs text-[#E5E5E5]/50 mt-6">
+      <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-6">
         <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-        <span>Autenticação oficial protegida pelo Supabase</span>
+        <span>Sessão segura com JWT & Supabase Auth</span>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#050914] flex items-center justify-center text-white">
+        <RefreshCw className="w-6 h-6 animate-spin text-[#FCA311]" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
