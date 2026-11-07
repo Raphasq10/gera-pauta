@@ -629,20 +629,25 @@ export default function DashboardPage() {
       {/* TOPBAR PRINCIPAL */}
       <header className="border-b border-[#2A2A3A] bg-[#1E1B4B] sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
-          {/* Logo Oficial e Nome da Marca */}
+          {/* Logo Oficial e Nome da Marca (Volta para o Gerador no clique) */}
           <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-3 group">
+            <button
+              type="button"
+              onClick={() => setActiveTab("generator")}
+              className="flex items-center gap-3 group cursor-pointer text-left focus:outline-none"
+              title="Ir para o 1. Gerador de Pautas"
+            >
               <img 
                 src="/images/logo.png" 
                 alt="Gera Pauta" 
                 className="h-8 w-auto object-contain group-hover:scale-105 transition-transform" 
               />
               <div className="hidden sm:block border-l border-[#2A2A3A] pl-3">
-                <span className="text-[11px] text-slate-300 truncate max-w-[200px] block font-medium">
+                <span className="text-[11px] text-slate-300 group-hover:text-[#FFB020] truncate max-w-[200px] block font-medium transition-colors">
                   {companyName} • {niche}
                 </span>
               </div>
-            </Link>
+            </button>
           </div>
 
           {/* Status de Quota e Ações Rápidas */}
