@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PitchContentSchema } from "@/lib/schemas";
+import { createClient } from "@/lib/supabase/server";
 import fs from "fs";
 import path from "path";
 import { z } from "zod";
@@ -139,7 +140,7 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// DELETE /api/pitches?id=... -> Apaga uma pauta específica (ou todas se id=all) do banco de dados local
+// DELETE /api/pitches?id=... -> Apaga uma pauta específica (ou todas se id=all) do banco de dados local e Supabase
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -152,13 +153,28 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
+    // Sincroniza exclusão no Supabase se o usuário estiver autenticado
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        if (id === "all") {
+          await supabase.from("pitches").delete().eq("user_id", user.id);
+        } else {
+          await supabase.from("pitches").delete().eq("id", id).eq("user_id", user.id);
+        }
+      }
+    } catch (dbErr) {
+      console.warn("[DELETE_SUPABASE_WARN]:", dbErr);
+    }
+
     const currentPitches = getSavedPitches();
 
     if (id === "all") {
       savePitches([]);
       return NextResponse.json({
         success: true,
-        message: "Todas as pautas foram removidas do histórico local."
+        message: "Todas as pautas foram removidas do histórico."
       });
     }
 
@@ -176,7 +192,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Pauta excluída permanentemente do banco de dados local.",
+      message: "Pauta excluída permanentemente do histórico.",
       pitches: updatedPitches
     });
   } catch (error) {
@@ -187,4 +203,3 @@ export async function DELETE(req: NextRequest) {
     );
   }
 }
-

@@ -55,6 +55,13 @@ Permite que o usuário cadastre múltiplos perfis de clientes, sincronizados em 
 
 ## ⏱️ 3. Linha do Tempo e Histórico de Entregas (com Data e Hora)
 
+### 📅 07/11/2026 — 15:58: Gestão & Exclusão de Pautas no Histórico (Recurso PRO)
+* **O que foi feito:**
+  - **Exclusão Individual de Pautas:** Adicionado botão com ícone de lixeira (`Trash2`) em cada card (Card em Destaque, Galeria de Ideias Anteriores e Aba de Histórico Completo).
+  - **Sincronização Completa:** Ao excluir uma pauta, a remoção ocorre de forma otimista no estado da tela, no `localStorage` e no banco de dados Supabase (`DELETE /api/pitches?id=...`).
+  - **Limpeza em Massa do Histórico:** Adicionado botão no topo da Aba 2 (Histórico) para limpar todo o histórico de uma vez com modal de confirmação.
+  - **Diferenciação PRO / Free:** Usuários Free recebem aviso amigável de benefício exclusivo do Plano PRO caso tentem excluir, incentivando o upgrade sem frustração.
+
 ### 📅 07/11/2026 — 15:40: Fidelidade Absoluta ao Briefing / Ideia do Usuário & Ajuste Visual
 * **O que foi feito:**
   - **Prioridade Máxima ao Campo 'Ideia de Conteúdo':** Ajustado o motor de prompt para que a ideia digitada pelo usuário seja o tema central e mandatório do post, proibindo que a "Dor da Persona" sequestre o conteúdo ou desvie o assunto para medos genéricos.

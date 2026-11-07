@@ -745,6 +745,61 @@ export default function DashboardPage() {
     toast.success(`Persona "${personaName}" removida.`);
   };
 
+  const handleDeletePitch = async (pitchId: string) => {
+    if (!isPro) {
+      toast.error("A limpeza e exclusão de pautas é exclusiva do Plano PRO. Faça upgrade para gerenciar seu histórico livremente!");
+      setIsQuotaModalOpen(true);
+      return;
+    }
+
+    const updated = pitches.filter((p) => p.id !== pitchId);
+    setPitches(updated);
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("gera_pauta_history", JSON.stringify(updated));
+    }
+
+    toast.success("Pauta removida do histórico.");
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("pitches").delete().eq("id", pitchId).eq("user_id", user.id);
+      }
+      await fetch(`/api/pitches?id=${encodeURIComponent(pitchId)}`, { method: "DELETE" });
+    } catch (err) {
+      console.warn("Erro ao sincronizar exclusão:", err);
+    }
+  };
+
+  const handleClearAllPitches = async () => {
+    if (!isPro) {
+      toast.error("A limpeza completa do histórico é exclusiva do Plano PRO. Faça upgrade para gerenciar!");
+      setIsQuotaModalOpen(true);
+      return;
+    }
+
+    if (!confirm("Tem certeza que deseja apagar todas as pautas geradas do seu histórico?")) {
+      return;
+    }
+
+    setPitches([]);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("gera_pauta_history", JSON.stringify([]));
+    }
+    toast.success("Histórico limpo com sucesso!");
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("pitches").delete().eq("user_id", user.id);
+      }
+      await fetch("/api/pitches?id=all", { method: "DELETE" });
+    } catch (err) {
+      console.warn("Erro ao limpar histórico:", err);
+    }
+  };
+
   const handleGenerate = async () => {
     setIsGenerating(true);
     const personaSelected = personas.find((p) => p.id === selectedPersonaId) || personas[0];
@@ -1113,22 +1168,38 @@ export default function DashboardPage() {
 
         {/* Botões de Ação na Base do Card */}
         <div className="pt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#E5E5E5]/10 mt-2">
-          <Button
-            onClick={() => {
-              if (isRefiningThis) {
-                setRefiningPitchId(null);
-              } else {
-                setRefiningPitchId(pitch.id);
-                setRefineInstruction("");
-              }
-            }}
-            variant="outline"
-            size="sm"
-            className="border-[#E5E5E5]/20 hover:border-[#FFB020] hover:text-[#FFB020] text-[#E5E5E5] text-xs h-9 px-3 rounded-xl cursor-pointer gap-1.5"
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            {isRefiningThis ? "Fechar Ajuste" : "Refazer / Ajustar"}
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button
+              onClick={() => {
+                if (isRefiningThis) {
+                  setRefiningPitchId(null);
+                } else {
+                  setRefiningPitchId(pitch.id);
+                  setRefineInstruction("");
+                }
+              }}
+              variant="outline"
+              size="sm"
+              className="border-[#E5E5E5]/20 hover:border-[#FFB020] hover:text-[#FFB020] text-[#E5E5E5] text-xs h-9 px-3 rounded-xl cursor-pointer gap-1.5"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              {isRefiningThis ? "Fechar Ajuste" : "Refazer / Ajustar"}
+            </Button>
+
+            <Button
+              onClick={() => handleDeletePitch(pitch.id)}
+              variant="ghost"
+              size="sm"
+              className="text-[#E5E5E5]/60 hover:text-rose-400 hover:bg-rose-500/10 text-xs h-9 px-2.5 rounded-xl cursor-pointer gap-1.5 transition-colors"
+              title={isPro ? "Eliminar esta pauta" : "Eliminar pauta (Exclusivo do Plano PRO)"}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Excluir</span>
+              {!isPro && (
+                <span className="text-[9px] bg-[#FFB020]/20 text-[#FFB020] px-1 py-0.5 rounded font-bold">PRO</span>
+              )}
+            </Button>
+          </div>
 
           <Button
             onClick={() => handleCopyFullPitch(pitch, pitch.headlineArte)}
@@ -1610,10 +1681,27 @@ export default function DashboardPage() {
           <TabsContent value="history" className="space-y-4">
             <Card className="bg-[#1E1B4B] border border-[#E5E5E5]/15 p-5 rounded-2xl shadow-xl space-y-4">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <History className="w-4 h-4 text-[#FFB020]" />
-                  Todas as Pautas Criadas ({pitches.length})
-                </h3>
+                <div className="flex items-center gap-3">
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <History className="w-4 h-4 text-[#FFB020]" />
+                    Todas as Pautas Criadas ({pitches.length})
+                  </h3>
+                  {pitches.length > 0 && (
+                    <Button
+                      onClick={handleClearAllPitches}
+                      variant="ghost"
+                      size="sm"
+                      className="text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 text-xs h-8 px-2.5 rounded-lg cursor-pointer gap-1.5 transition-colors"
+                      title={isPro ? "Limpar todas as pautas" : "Limpar histórico (Exclusivo PRO)"}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Limpar Histórico</span>
+                      {!isPro && (
+                        <span className="text-[9px] bg-[#FFB020]/20 text-[#FFB020] px-1 py-0.2 rounded font-bold">PRO</span>
+                      )}
+                    </Button>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <div className="relative w-full sm:w-64">
                     <Search className="w-3.5 h-3.5 text-[#E5E5E5]/40 absolute left-3 top-2.5" />
@@ -1654,14 +1742,25 @@ export default function DashboardPage() {
                         <p className="text-[11px] text-[#E5E5E5]/70 line-clamp-1">{p.mote}</p>
                       </div>
 
-                      <Button
-                        onClick={() => handleCopy(p, p.headlineArte)}
-                        size="sm"
-                        variant="outline"
-                        className="border-[#E5E5E5]/20 bg-[#1E1B4B] text-white hover:text-[#FFB020] text-xs h-8 px-3 rounded-lg cursor-pointer shrink-0"
-                      >
-                        <Copy className="w-3 h-3 mr-1" /> Copiar
-                      </Button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          onClick={() => handleCopy(p, p.headlineArte)}
+                          size="sm"
+                          variant="outline"
+                          className="border-[#E5E5E5]/20 bg-[#1E1B4B] text-white hover:text-[#FFB020] text-xs h-8 px-3 rounded-lg cursor-pointer shrink-0"
+                        >
+                          <Copy className="w-3 h-3 mr-1" /> Copiar
+                        </Button>
+                        <Button
+                          onClick={() => handleDeletePitch(p.id)}
+                          size="sm"
+                          variant="ghost"
+                          className="text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 h-8 w-8 p-0 rounded-lg cursor-pointer shrink-0 transition-colors"
+                          title={isPro ? "Excluir pauta" : "Excluir pauta (Exclusivo PRO)"}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
               </div>
