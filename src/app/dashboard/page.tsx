@@ -841,12 +841,15 @@ export default function DashboardPage() {
           console.warn("Pautas salvas em cache local:", dbErr);
         }
 
-        toast.success(`✨ ${enrichedPitches.length} pautas contextualizadas criadas e salvas no Supabase!`);
+        toast.success(`✨ ${enrichedPitches.length} pautas contextualizadas criadas com sucesso!`);
       } else {
-        throw new Error(data.error || "Erro na geração");
+        const errorMsg = data.details?.[0]?.message || data.error || "Erro na geração de pautas.";
+        toast.error(errorMsg);
+        console.error("[GENERATE_API_ERROR]:", data);
       }
     } catch (err: any) {
-      toast.error("Instabilidade momentânea. Ativando motor de contingência...");
+      console.error("[GENERATE_NETWORK_ERROR]:", err);
+      toast.error(err.message || "Erro de conexão ao gerar pautas.");
     } finally {
       setIsGenerating(false);
     }
@@ -2417,8 +2420,8 @@ export default function DashboardPage() {
             MODAL DE CADASTRO / EDIÇÃO DE PERSONA (COPYWRITING ESTRATÉGICO)
            ========================================================================= */}
         <Dialog open={isPersonaModalOpen} onOpenChange={setIsPersonaModalOpen}>
-          <DialogContent className="bg-[#1E1B4B] border border-[#FFB020]/50 text-white max-w-lg p-6 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader className="space-y-1.5">
+          <DialogContent className="bg-[#1E1B4B] border border-[#FFB020]/50 text-white w-full sm:max-w-2xl md:max-w-3xl lg:max-w-4xl p-6 md:p-8 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="space-y-1.5 pb-2 border-b border-[#E5E5E5]/10">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-[#000000] border border-[#FFB020]/40 flex items-center justify-center text-[#FFB020]">
                   <Users className="w-4 h-4" />
@@ -2434,92 +2437,101 @@ export default function DashboardPage() {
               </div>
             </DialogHeader>
 
-            <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs text-white">Nome ou Arquétipo da Persona *</Label>
-                  <Input
-                    placeholder="Ex: Mariana ou Noiva Ansiosa"
-                    value={personaForm.name}
-                    onChange={(e) => setPersonaForm({ ...personaForm, name: e.target.value })}
-                    className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-9 focus-visible:ring-[#FFB020]"
-                  />
+            <div className="pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Coluna 1: Dados Cadastrais & Perfil */}
+                <div className="space-y-3.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-white">Nome ou Arquétipo da Persona *</Label>
+                      <Input
+                        placeholder="Ex: Mariana ou Noiva Ansiosa"
+                        value={personaForm.name}
+                        onChange={(e) => setPersonaForm({ ...personaForm, name: e.target.value })}
+                        className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-9 focus-visible:ring-[#FFB020]"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs text-white">Nicho / Categoria</Label>
+                      <Input
+                        placeholder="Ex: Estética, Gastronomia, Saúde..."
+                        value={personaForm.category}
+                        onChange={(e) => setPersonaForm({ ...personaForm, category: e.target.value })}
+                        className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-9 focus-visible:ring-[#FFB020]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-white">Perfil Demográfico & Comportamento</Label>
+                    <Textarea
+                      placeholder="Ex: Mulher de 35 anos, empresária, sem tempo e buscando procedimentos rápidos"
+                      value={personaForm.role}
+                      onChange={(e) => setPersonaForm({ ...personaForm, role: e.target.value })}
+                      rows={2}
+                      className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs focus-visible:ring-[#FFB020] rounded-xl"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-white">Tom de Voz Específico para esta Persona</Label>
+                    <Input
+                      placeholder="Ex: Acolhedor, elegante, empático e autoridade científica simples"
+                      value={personaForm.tone}
+                      onChange={(e) => setPersonaForm({ ...personaForm, tone: e.target.value })}
+                      className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-9 focus-visible:ring-[#FFB020]"
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-1">
-                  <Label className="text-xs text-white">Nicho / Categoria</Label>
-                  <Input
-                    placeholder="Ex: Estética, Gastronomia, Saúde..."
-                    value={personaForm.category}
-                    onChange={(e) => setPersonaForm({ ...personaForm, category: e.target.value })}
-                    className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-9 focus-visible:ring-[#FFB020]"
-                  />
+                {/* Coluna 2: Gatilhos Psicológicos de Copy & Dores */}
+                <div className="space-y-3.5">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-[#FFB020] font-bold flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 text-[#FFB020]" />
+                      <span>Dor Principal / Frustração que tira o sono dela *</span>
+                    </Label>
+                    <Textarea
+                      placeholder="Ex: Medo de dor durante o procedimento e receio de ficar com resultado artificial..."
+                      value={personaForm.keyPain}
+                      onChange={(e) => setPersonaForm({ ...personaForm, keyPain: e.target.value })}
+                      rows={2}
+                      className="bg-[#000000]/60 border-[#FFB020]/30 text-white text-xs focus-visible:ring-[#FFB020] rounded-xl"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-emerald-400 font-bold flex items-center gap-1">
+                      <Heart className="w-3 h-3 text-emerald-400" />
+                      <span>Maior Desejo / Transformação que ela busca alcançar</span>
+                    </Label>
+                    <Textarea
+                      placeholder="Ex: Ter um sorriso brilhante para fotos do casamento sem sentir sensibilidade..."
+                      value={personaForm.desire}
+                      onChange={(e) => setPersonaForm({ ...personaForm, desire: e.target.value })}
+                      rows={2}
+                      className="bg-[#000000]/60 border-emerald-500/30 text-white text-xs focus-visible:ring-emerald-500 rounded-xl"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-amber-400 font-bold flex items-center gap-1">
+                      <ShieldAlert className="w-3 h-3 text-amber-400" />
+                      <span>Objeção Oculta que a IA DEVE quebrar na copy</span>
+                    </Label>
+                    <Textarea
+                      placeholder="Ex: Acha que vai doer demais, que vai ficar artificial ou que é caro demais..."
+                      value={personaForm.objection}
+                      onChange={(e) => setPersonaForm({ ...personaForm, objection: e.target.value })}
+                      rows={2}
+                      className="bg-[#000000]/60 border-amber-500/30 text-white text-xs focus-visible:ring-amber-500 rounded-xl"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs text-white">Perfil Demográfico & Comportamento</Label>
-                <Input
-                  placeholder="Ex: Mulher de 35 anos, empresária, sem tempo e buscando procedimentos rápidos"
-                  value={personaForm.role}
-                  onChange={(e) => setPersonaForm({ ...personaForm, role: e.target.value })}
-                  className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-9 focus-visible:ring-[#FFB020]"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs text-[#FFB020] font-bold flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3 text-[#FFB020]" />
-                  <span>Dor Principal / Frustração que tira o sono dela *</span>
-                </Label>
-                <Textarea
-                  placeholder="Ex: Medo de dor durante o procedimento e receio de ficar com resultado artificial..."
-                  value={personaForm.keyPain}
-                  onChange={(e) => setPersonaForm({ ...personaForm, keyPain: e.target.value })}
-                  rows={2}
-                  className="bg-[#000000]/60 border-[#FFB020]/30 text-white text-xs focus-visible:ring-[#FFB020] rounded-xl"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs text-emerald-400 font-bold flex items-center gap-1">
-                  <Heart className="w-3 h-3 text-emerald-400" />
-                  <span>Maior Desejo / Transformação que ela busca alcançar</span>
-                </Label>
-                <Textarea
-                  placeholder="Ex: Ter um sorriso brilhante para fotos do casamento sem sentir sensibilidade..."
-                  value={personaForm.desire}
-                  onChange={(e) => setPersonaForm({ ...personaForm, desire: e.target.value })}
-                  rows={2}
-                  className="bg-[#000000]/60 border-emerald-500/30 text-white text-xs focus-visible:ring-emerald-500 rounded-xl"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs text-amber-400 font-bold flex items-center gap-1">
-                  <ShieldAlert className="w-3 h-3 text-amber-400" />
-                  <span>Objeção Oculta que a IA DEVE quebrar na copy</span>
-                </Label>
-                <Textarea
-                  placeholder="Ex: Acha que vai doer demais, que vai ficar artificial ou que é caro demais..."
-                  value={personaForm.objection}
-                  onChange={(e) => setPersonaForm({ ...personaForm, objection: e.target.value })}
-                  rows={2}
-                  className="bg-[#000000]/60 border-amber-500/30 text-white text-xs focus-visible:ring-amber-500 rounded-xl"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs text-white">Tom de Voz Específico para esta Persona</Label>
-                <Input
-                  placeholder="Ex: Acolhedor, elegante, empático e autoridade científica simples"
-                  value={personaForm.tone}
-                  onChange={(e) => setPersonaForm({ ...personaForm, tone: e.target.value })}
-                  className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-9 focus-visible:ring-[#FFB020]"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E5E5E5]/10">
+              <div className="flex items-center justify-end gap-2 pt-4 mt-4 border-t border-[#E5E5E5]/10">
                 <Button
                   type="button"
                   onClick={() => setIsPersonaModalOpen(false)}

@@ -64,7 +64,7 @@ function generateOfflinePitches(
 ): FallbackPitch[] {
   const company = business.companyName || "Nossa Empresa";
   const niche = business.niche || "Serviços Especializados";
-  const pain = business.keyPain || "medo de errar na escolha ou gastar sem retorno";
+  const pain = business.personaDetails?.keyPain || business.keyPain || "medo de errar na escolha ou gastar sem retorno";
   const diff = business.differential || "atendimento humanizado, agilidade e garantia";
   const ideaText = (initialIdea || "").trim();
 
@@ -422,19 +422,38 @@ RETORNE EXCLUSIVAMENTE UM ARRAY JSON VÁLIDO COM OS ${pitchCount} OBJETOS, SEM B
 
     persistPitches(formattedPitches);
 
-    // Incrementa a cota no banco Supabase se autenticado
+    // Salva as pautas geradas e atualiza a cota no banco Supabase se autenticado
     let newUsed = currentUsedPitches;
     if (authUser) {
       try {
         const supabase = await createClient();
+        
+        // 1. Salva diretamente na tabela 'pitches' do Supabase no lado do servidor
+        const rowsToInsert = formattedPitches.map((p) => ({
+          user_id: authUser.id,
+          channel: p.channel,
+          goal: effectiveGoal,
+          mote: p.mote,
+          headline_arte: p.headlineArte,
+          headline_arte_alt: p.headlineArteAlt,
+          legenda: p.legenda,
+          formato: p.formato,
+          justificativa_formato: p.justificativaFormato
+        }));
+
+        const { error: insertPitchesErr } = await supabase.from("pitches").insert(rowsToInsert);
+        if (insertPitchesErr) {
+          console.warn("[PITCHES_SERVER_INSERT_WARN]:", insertPitchesErr.message);
+        } else {
+          console.log(`[PITCHES_SERVER_INSERT_SUCCESS] ${rowsToInsert.length} pautas salvas no Supabase para ${authUser.email}`);
+        }
+
+        // 2. Incrementa a contagem de pautas utilizadas
         newUsed = Math.min(currentUsedPitches + formattedPitches.length, MAX_FREE_PITCHES);
         await supabase
           .from("profiles")
-          .upsert({
-            id: authUser.id,
-            used_pitches: newUsed,
-            email: authUser.email
-          });
+          .update({ used_pitches: newUsed })
+          .eq("id", authUser.id);
       } catch (dbErr) {
         console.warn("[GEMINI_QUOTA_INCREMENT_WARN]:", dbErr);
       }

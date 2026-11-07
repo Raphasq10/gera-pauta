@@ -104,20 +104,20 @@ export const GeneratePitchesRequestSchema = z.object({
   initialIdea: z.string().trim().max(800).optional().or(z.literal("")),
   userApiKey: z.string().trim().max(200).optional(),
   businessContext: z.object({
-    companyName: z.string().trim().max(100).optional(),
-    niche: z.string().trim().max(100).optional(),
-    toneOfVoice: z.string().trim().max(150).optional(),
-    targetAudience: z.string().trim().max(300).optional(),
-    keyPain: z.string().trim().max(500).optional(),
-    differential: z.string().trim().max(500).optional(),
-    mainProduct: z.string().trim().max(300).optional(),
-    forbiddenWords: z.string().trim().max(500).optional(),
+    companyName: z.string().trim().max(300).optional(),
+    niche: z.string().trim().max(300).optional(),
+    toneOfVoice: z.string().trim().max(500).optional(),
+    targetAudience: z.string().trim().max(1000).optional(),
+    keyPain: z.string().trim().max(3000).optional(),
+    differential: z.string().trim().max(3000).optional(),
+    mainProduct: z.string().trim().max(1000).optional(),
+    forbiddenWords: z.string().trim().max(3000).optional(),
     personaDetails: z.object({
-      name: z.string().trim().max(100).optional(),
-      role: z.string().trim().max(200).optional(),
-      keyPain: z.string().trim().max(500).optional(),
-      desire: z.string().trim().max(500).optional(),
-      objection: z.string().trim().max(500).optional()
+      name: z.string().trim().max(300).optional(),
+      role: z.string().trim().max(2000).optional(),
+      keyPain: z.string().trim().max(3000).optional(),
+      desire: z.string().trim().max(3000).optional(),
+      objection: z.string().trim().max(3000).optional()
     }).optional()
   }).optional()
 });
@@ -171,20 +171,20 @@ export const RefinePitchRequestSchema = z.object({
   includeHashtags: z.boolean().default(true).optional(),
   userApiKey: z.string().trim().max(200).optional(),
   businessContext: z.object({
-    companyName: z.string().trim().max(100).optional(),
-    niche: z.string().trim().max(100).optional(),
-    toneOfVoice: z.string().trim().max(150).optional(),
-    targetAudience: z.string().trim().max(300).optional(),
-    keyPain: z.string().trim().max(500).optional(),
-    differential: z.string().trim().max(500).optional(),
-    mainProduct: z.string().trim().max(300).optional(),
-    forbiddenWords: z.string().trim().max(500).optional(),
+    companyName: z.string().trim().max(300).optional(),
+    niche: z.string().trim().max(300).optional(),
+    toneOfVoice: z.string().trim().max(500).optional(),
+    targetAudience: z.string().trim().max(1000).optional(),
+    keyPain: z.string().trim().max(3000).optional(),
+    differential: z.string().trim().max(3000).optional(),
+    mainProduct: z.string().trim().max(1000).optional(),
+    forbiddenWords: z.string().trim().max(3000).optional(),
     personaDetails: z.object({
-      name: z.string().trim().max(100).optional(),
-      role: z.string().trim().max(200).optional(),
-      keyPain: z.string().trim().max(500).optional(),
-      desire: z.string().trim().max(500).optional(),
-      objection: z.string().trim().max(500).optional()
+      name: z.string().trim().max(300).optional(),
+      role: z.string().trim().max(2000).optional(),
+      keyPain: z.string().trim().max(3000).optional(),
+      desire: z.string().trim().max(3000).optional(),
+      objection: z.string().trim().max(3000).optional()
     }).optional()
   }).optional()
 });
