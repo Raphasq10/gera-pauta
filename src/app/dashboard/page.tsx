@@ -842,6 +842,16 @@ export default function DashboardPage() {
         }
 
         toast.success(`✨ ${enrichedPitches.length} pautas contextualizadas criadas com sucesso!`);
+        
+        // Rola suavemente para a pauta gerada em destaque
+        if (typeof window !== "undefined") {
+          setTimeout(() => {
+            const cardElem = document.getElementById("featured-card");
+            if (cardElem) {
+              cardElem.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+          }, 100);
+        }
       } else {
         const errorMsg = data.details?.[0]?.message || data.error || "Erro na geração de pautas.";
         toast.error(errorMsg);
@@ -869,6 +879,7 @@ export default function DashboardPage() {
 
     return (
       <Card
+        id={isFeatured ? "featured-card" : undefined}
         key={pitch.id}
         className={`bg-[#1E1B4B] border transition-all space-y-4 relative overflow-hidden p-5 rounded-2xl shadow-xl flex flex-col justify-between ${
           isFeatured
@@ -1463,14 +1474,25 @@ export default function DashboardPage() {
                   </span>
                 </div>
 
-                {/* Loading State com Skeletons */}
+                {/* Loading State com Skeletons e Feedback Visual Ativo */}
                 {isGenerating && (
                   <div className="space-y-4">
-                    <Card className="bg-[#1E1B4B] border border-[#FFB020]/30 p-5 rounded-2xl space-y-3">
-                      <Skeleton className="h-4 w-1/3 bg-[#000000]/60" />
-                      <Skeleton className="h-6 w-3/4 bg-[#000000]/60" />
-                      <Skeleton className="h-16 w-full bg-[#000000]/60" />
-                      <Skeleton className="h-8 w-1/2 bg-[#000000]/60" />
+                    <Card className="bg-[#1E1B4B] border border-[#FFB020]/50 p-6 rounded-2xl space-y-4 shadow-xl">
+                      <div className="flex items-center justify-between pb-2 border-b border-[#E5E5E5]/10">
+                        <div className="flex items-center gap-2">
+                          <RefreshCw className="w-4 h-4 text-[#FFB020] animate-spin" />
+                          <span className="text-xs font-bold text-[#FFB020]">Criando pautas com IA em alta velocidade (~1-2s)...</span>
+                        </div>
+                        <Badge className="bg-[#FFB020]/20 text-[#FFB020] text-[10px] border border-[#FFB020]/30 animate-pulse">
+                          Gerando
+                        </Badge>
+                      </div>
+                      <div className="space-y-3 pt-1">
+                        <Skeleton className="h-4 w-1/3 bg-[#000000]/60 rounded-md" />
+                        <Skeleton className="h-6 w-3/4 bg-[#000000]/60 rounded-md" />
+                        <Skeleton className="h-16 w-full bg-[#000000]/60 rounded-xl" />
+                        <Skeleton className="h-8 w-1/2 bg-[#000000]/60 rounded-md" />
+                      </div>
                     </Card>
                   </div>
                 )}

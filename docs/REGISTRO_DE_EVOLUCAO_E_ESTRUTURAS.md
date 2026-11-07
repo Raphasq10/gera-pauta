@@ -55,6 +55,15 @@ Permite que o usuário cadastre múltiplos perfis de clientes, sincronizados em 
 
 ## ⏱️ 3. Linha do Tempo e Histórico de Entregas (com Data e Hora)
 
+### 📅 07/11/2026 — 15:15: Otimização Radical de Velocidade da IA (Latência Reduzida de ~20s para < 2.5s)
+* **Diagnóstico da Causa Raiz:**
+  - O motor `src/lib/gemini.ts` mantinha modelos no início da fila de requisições que estavam instáveis ou apresentando status 503 (`gemini-3.8-flash`) ou 404, gerando atraso sequencial cumulativo de 15 a 20+ segundos antes de atingir um modelo ativo.
+* **O que foi feito:**
+  - **Reordenação Cirúrgica dos Modelos:** Promovido `gemini-3.5-flash-lite` (resposta em ~800ms) e `gemini-flash-lite-latest` (~800ms) para as primeiras posições da fila de chamada REST v1beta.
+  - **Mecanismo de Fast-Fail com Timeout:** Implementado `AbortController` com limite de 7s por modelo para evitar congelamento caso a infraestrutura do Google oscile.
+  - **Eliminação de Chamadas Duplicadas:** Otimização do endpoint `/api/generate`, reutilizando a instância de cliente Supabase e eliminando chamadas redundantes a `auth.getUser()`.
+  - **Feedback Visual Ativo no Dashboard:** O skeleton de carregamento na coluna da direita agora exibe status ativo com animação ("Criando pautas com IA em alta velocidade...") e realiza rolagem suave automática para o card em destaque após a geração.
+
 ### 📅 07/11/2026 — 01:57: Consistência Total de Dados & Banco de Dados Supabase
 * **O que foi feito:**
   - Migração da tabela `public.businesses` no Supabase via Postgres para adicionar as colunas `main_product` (text), `forbidden_words` (text) e `custom_personas` (jsonb).

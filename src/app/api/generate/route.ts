@@ -197,13 +197,14 @@ export async function POST(req: NextRequest) {
     const effectiveGoal = goal || weeklyTheme || "whatsapp";
 
     // 2. Verificação de Quota no Backend (Feature 4 - Critério de Aceitação do PRD)
+    let supabase: any = null;
     let authUser: any = null;
     let currentUsedPitches = 0;
     let userByokKey = "";
     const MAX_FREE_PITCHES = 5;
 
     try {
-      const supabase = await createClient();
+      supabase = await createClient();
       const { data: { user } } = await supabase.auth.getUser();
       authUser = user;
 
@@ -253,14 +254,12 @@ export async function POST(req: NextRequest) {
     };
 
     // Se o cliente não passou o contexto completo, tenta buscar do banco Supabase do usuário
-    try {
-      const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+    if (authUser && (!business.differential || !business.mainProduct)) {
+      try {
         const { data: dbBusiness } = await supabase
           .from("businesses")
           .select("*")
-          .eq("user_id", user.id)
+          .eq("user_id", authUser.id)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -278,9 +277,9 @@ export async function POST(req: NextRequest) {
             personaDetails: business.personaDetails,
           };
         }
+      } catch {
+        // safe ignore
       }
-    } catch {
-      // safe ignore
     }
 
     // 4. Arquitetura de Inteligência em 3 Níveis & Resiliência (Feature 5)
@@ -424,10 +423,8 @@ RETORNE EXCLUSIVAMENTE UM ARRAY JSON VÁLIDO COM OS ${pitchCount} OBJETOS, SEM B
 
     // Salva as pautas geradas e atualiza a cota no banco Supabase se autenticado
     let newUsed = currentUsedPitches;
-    if (authUser) {
+    if (authUser && supabase) {
       try {
-        const supabase = await createClient();
-        
         // 1. Salva diretamente na tabela 'pitches' do Supabase no lado do servidor
         const rowsToInsert = formattedPitches.map((p) => ({
           user_id: authUser.id,
