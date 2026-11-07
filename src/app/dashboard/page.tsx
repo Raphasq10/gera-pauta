@@ -31,7 +31,8 @@ import {
   AlertCircle,
   Trash2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Calendar
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -571,8 +572,10 @@ export default function DashboardPage() {
       }
 
       if (data.success && Array.isArray(data.pitches)) {
+        const currentDateFormatted = new Date().toLocaleDateString("pt-BR");
         const enrichedPitches: PitchContent[] = data.pitches.map((p: any) => ({
           ...p,
+          createdAt: p.createdAt || currentDateFormatted,
           channel: p.channel || channel,
           headlineArteAlt: p.headlineArteAlt || `Opção B: ${p.headlineArte.replace(/[?!]/g, "")} — Vale a pena conferir?`
         }));
@@ -676,13 +679,14 @@ export default function DashboardPage() {
                 </Badge>
               )}
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <Badge className="bg-[#000000] text-[#E5E5E5] border border-[#E5E5E5]/20 text-[10px] font-bold">
                 {pitch.channel?.toUpperCase() || channel.toUpperCase()}
               </Badge>
-              {pitch.createdAt && (
-                <span className="text-[10px] text-[#E5E5E5]/50 hidden sm:inline">{pitch.createdAt}</span>
-              )}
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-300 bg-[#000000]/60 px-2 py-0.5 rounded-md border border-[#E5E5E5]/15">
+                <Calendar className="w-3 h-3 text-[#FFB020]" />
+                {pitch.createdAt || new Date().toLocaleDateString("pt-BR")}
+              </span>
             </div>
           </div>
 
@@ -1360,11 +1364,14 @@ export default function DashboardPage() {
                       className="p-4 bg-[#000000]/60 border border-[#E5E5E5]/10 rounded-xl hover:border-[#FFB020]/40 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
                     >
                       <div className="space-y-1 max-w-xl">
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-[#1E1B4B] text-[#FFB020] border border-[#FFB020]/30 text-[10px]">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge className="bg-[#1E1B4B] text-[#FFB020] border border-[#FFB020]/30 text-[10px] font-bold">
                             {p.channel?.toUpperCase() || "POST"}
                           </Badge>
-                          <span className="text-[10px] text-[#E5E5E5]/50">{p.createdAt}</span>
+                          <span className="inline-flex items-center gap-1 text-[10px] text-slate-300 bg-[#000000]/80 px-2 py-0.5 rounded border border-[#E5E5E5]/15 font-medium">
+                            <Calendar className="w-3 h-3 text-[#FFB020]" />
+                            {p.createdAt || new Date().toLocaleDateString("pt-BR")}
+                          </span>
                         </div>
                         <h4 className="text-xs font-bold text-white">{p.headlineArte}</h4>
                         <p className="text-[11px] text-[#E5E5E5]/70 line-clamp-1">{p.mote}</p>
