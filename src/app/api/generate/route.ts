@@ -310,6 +310,18 @@ export async function POST(req: NextRequest) {
     const personaDesire = business.personaDetails?.desire;
     const personaObjection = business.personaDetails?.objection;
 
+    const ideaBlock = initialIdea?.trim()
+      ? `🚨 REGRA DE PRIORIDADE MÁXIMA — BRIEFING / IDEIA ESPECÍFICA DO USUÁRIO:
+O usuário definiu expressamente o tema e o objetivo deste post:
+👉 "${initialIdea.trim()}"
+
+DIRETRIZES MANDATÓRIAS DESTE BRIEFING:
+1. O TEMA CENTRAL de cada pauta DEVE SER ESTRITAMENTE: "${initialIdea.trim()}".
+2. Desenvolva o conteúdo com substância, clareza, autoridade e profundidade técnica acessível sobre esse assunto exato solicitado.
+3. NÃO permita que a "Dor da Persona" sequestre ou desvie o tema (ex: se o usuário pediu 'critérios importantes para criar apps de sucesso', o post deve ensinar e debater esses critérios; NÃO mude o assunto para falar apenas de rejeição de app em loja ou bugs). A dor e os diferenciais servem como lentes e tom de voz, jamais para substituir a pauta solicitada.
+4. O Call-to-Action (CTA) e o desfecho da legenda devem cumprir fielmente o que o usuário solicitou no briefing (ex: convidar expressamente para comentar experiências, se foi isso pedido, ou direcionar para o canal selecionado).`
+      : `💡 Crie os melhores ângulos criativos estratégicos para quebrar a dor/objeção ("${personaPain}") e posicionar o diferencial da marca ("${business.differential}").`;
+
     const promptSystem = `Você é o Diretor de Criação & Estrategista de Conteúdo da plataforma "Gera Pauta".
 Sua missão é criar exatamente ${pitchCount} pautas de redes sociais completas, autênticas e de ALTA CONVERSÃO para o seguinte cliente:
 
@@ -331,7 +343,7 @@ ${personaObjection ? `- Objeção Secreta que a IA DEVE quebrar na copy: ${perso
 - Preferência de Emojis: ${includeEmojis ? "USAR emojis harmoniosos e bem posicionados." : "PROIBIDO usar emojis (texto 100% limpo sem nenhum emoji)."}
 - Preferência de Hashtags: ${includeHashtags ? "INCLUIR 3 a 5 hashtags estratégicas no final da legenda." : "PROIBIDO incluir hashtags."}
 
-${initialIdea ? `💡 BRIEFING / IDEIA ESPECÍFICA SOLICITADA:\n"${initialIdea}"\nFoque todas as ${pitchCount} pautas rigorosamente neste tema/ideia, adaptando aos diferenciais do negócio e à dor da persona selecionada.` : `💡 Crie os melhores ângulos criativos para quebrar a dor/objeção ("${personaPain}") e posicionar o diferencial ("${business.differential}").`}
+${ideaBlock}
 
 REGRAS OBRIGATÓRIAS DE ESTRUTURA PARA CADA PAUTA:
 1. mote: Resumo estratégico em 1 linha sobre a intenção do conteúdo e o objetivo de negócio.

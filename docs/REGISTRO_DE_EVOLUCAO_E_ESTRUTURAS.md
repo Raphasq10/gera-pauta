@@ -55,6 +55,12 @@ Permite que o usuário cadastre múltiplos perfis de clientes, sincronizados em 
 
 ## ⏱️ 3. Linha do Tempo e Histórico de Entregas (com Data e Hora)
 
+### 📅 07/11/2026 — 15:40: Fidelidade Absoluta ao Briefing / Ideia do Usuário & Ajuste Visual
+* **O que foi feito:**
+  - **Prioridade Máxima ao Campo 'Ideia de Conteúdo':** Ajustado o motor de prompt para que a ideia digitada pelo usuário seja o tema central e mandatório do post, proibindo que a "Dor da Persona" sequestre o conteúdo ou desvie o assunto para medos genéricos.
+  - **Cumprimento do CTA Solicitado no Briefing:** Se o usuário pedir para chamar a comentar experiências ou tirar dúvidas, a IA gera perguntas abertas magnéticas específicas para esse fim.
+  - **Limpeza no Skeleton Loader:** Removida a contagem de segundos (`~1-2s`) do card de carregamento, mantendo uma mensagem elegante e sóbria: *"Criando pautas estruturadas com IA..."*.
+
 ### 📅 07/11/2026 — 15:20: Instalação do Google Tag Manager (GTM-M7R2WLZ3)
 * **O que foi feito:**
   - Instalação oficial do container **GTM-M7R2WLZ3** em [`src/app/layout.tsx`](file:///c:/xampp/htdocs/gerador-pauta/src/app/layout.tsx) utilizando a biblioteca nativa `next/script` com estratégia `afterInteractive` (não bloqueia a renderização nem o LCP).

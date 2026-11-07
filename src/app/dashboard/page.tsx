@@ -1481,7 +1481,7 @@ export default function DashboardPage() {
                       <div className="flex items-center justify-between pb-2 border-b border-[#E5E5E5]/10">
                         <div className="flex items-center gap-2">
                           <RefreshCw className="w-4 h-4 text-[#FFB020] animate-spin" />
-                          <span className="text-xs font-bold text-[#FFB020]">Criando pautas com IA em alta velocidade (~1-2s)...</span>
+                          <span className="text-xs font-bold text-[#FFB020]">Criando pautas estruturadas com IA...</span>
                         </div>
                         <Badge className="bg-[#FFB020]/20 text-[#FFB020] text-[10px] border border-[#FFB020]/30 animate-pulse">
                           Gerando
