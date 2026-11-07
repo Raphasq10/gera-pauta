@@ -37,6 +37,15 @@ interface BusinessContext {
   targetAudience: string;
   keyPain: string;
   differential: string;
+  mainProduct?: string;
+  forbiddenWords?: string;
+  personaDetails?: {
+    name?: string;
+    role?: string;
+    keyPain?: string;
+    desire?: string;
+    objection?: string;
+  };
 }
 
 /**
@@ -230,7 +239,7 @@ export async function POST(req: NextRequest) {
       console.warn("[AUTH_QUOTA_CHECK_WARN]:", authErr);
     }
 
-    // 3. Resolução do Contexto do Negócio (Memória de Marca)
+    // 3. Resolução do Contexto do Negócio (Memória de Marca Turbinada)
     let business: BusinessContext = {
       companyName: businessContext?.companyName || "Minha Empresa",
       niche: businessContext?.niche || "Negócio Local",
@@ -238,6 +247,9 @@ export async function POST(req: NextRequest) {
       targetAudience: businessContext?.targetAudience || "Pessoas interessadas em soluções de qualidade",
       keyPain: businessContext?.keyPain || "Insegurança ou receio de não ter retorno",
       differential: businessContext?.differential || "Atendimento pontual e foco em resultados",
+      mainProduct: businessContext?.mainProduct || undefined,
+      forbiddenWords: businessContext?.forbiddenWords || undefined,
+      personaDetails: businessContext?.personaDetails || undefined,
     };
 
     // Se o cliente não passou o contexto completo, tenta buscar do banco Supabase do usuário
@@ -261,6 +273,9 @@ export async function POST(req: NextRequest) {
             targetAudience: business.targetAudience,
             keyPain: dbBusiness.key_pain || business.keyPain,
             differential: dbBusiness.differential || business.differential,
+            mainProduct: business.mainProduct,
+            forbiddenWords: business.forbiddenWords,
+            personaDetails: business.personaDetails,
           };
         }
       }
@@ -290,6 +305,12 @@ export async function POST(req: NextRequest) {
     const isUsingByok = Boolean(effectiveUserKey && primaryKey === effectiveUserKey);
 
     // 5. Geração com Motor Inteligente e Resiliência Automática
+    const personaName = business.personaDetails?.name || business.targetAudience;
+    const personaRole = business.personaDetails?.role || "Cliente Ideal";
+    const personaPain = business.personaDetails?.keyPain || business.keyPain;
+    const personaDesire = business.personaDetails?.desire;
+    const personaObjection = business.personaDetails?.objection;
+
     const promptSystem = `Você é o Diretor de Criação & Estrategista de Conteúdo da plataforma "Gera Pauta".
 Sua missão é criar exatamente ${pitchCount} pautas de redes sociais completas, autênticas e de ALTA CONVERSÃO para o seguinte cliente:
 
@@ -297,15 +318,21 @@ Sua missão é criar exatamente ${pitchCount} pautas de redes sociais completas,
 - Empresa / Marca: ${business.companyName}
 - Nicho / Segmento: ${business.niche}
 - Tom de Voz Obrigatório: ${business.toneOfVoice}
-- Público-Alvo: ${business.targetAudience}
-- Maior Dor / Objeção do Cliente: ${business.keyPain}
-- Diferencial Competitivo da Empresa: ${business.differential}
+- Diferencial Competitivo Único: ${business.differential}
+${business.mainProduct ? `- Oferta / Serviço Carro-Chefe: ${business.mainProduct}` : ""}
+${business.forbiddenWords ? `- ⛔ DIRETRIZES NEGATIVAS (O QUE NUNCA FALAR / TERMOS PROIBIDOS): ${business.forbiddenWords}` : ""}
+
+👥 PERSONA & PÚBLICO-ALVO SELECIONADO:
+- Persona: ${personaName} (${personaRole})
+- Dor Central: ${personaPain}
+${personaDesire ? `- Maior Desejo / Transformação Buscada: ${personaDesire}` : ""}
+${personaObjection ? `- Objeção Secreta que a IA DEVE quebrar na copy: ${personaObjection}` : ""}
 - Rede Social de Destino: ${channel.toUpperCase()} (instagram, linkedin, whatsapp ou tiktok)
 - Objetivo de Conversão da Pauta: ${effectiveGoal.toUpperCase()} (whatsapp, comments, saves, sales)
 - Preferência de Emojis: ${includeEmojis ? "USAR emojis harmoniosos e bem posicionados." : "PROIBIDO usar emojis (texto 100% limpo sem nenhum emoji)."}
 - Preferência de Hashtags: ${includeHashtags ? "INCLUIR 3 a 5 hashtags estratégicas no final da legenda." : "PROIBIDO incluir hashtags."}
 
-${initialIdea ? `💡 BRIEFING / IDEIA ESPECÍFICA SOLICITADA:\n"${initialIdea}"\nFoque todas as ${pitchCount} pautas rigorosamente neste tema/ideia, adaptando aos diferenciais do negócio.` : `💡 Crie os melhores ângulos criativos para quebrar a dor ("${business.keyPain}") e posicionar o diferencial ("${business.differential}").`}
+${initialIdea ? `💡 BRIEFING / IDEIA ESPECÍFICA SOLICITADA:\n"${initialIdea}"\nFoque todas as ${pitchCount} pautas rigorosamente neste tema/ideia, adaptando aos diferenciais do negócio e à dor da persona selecionada.` : `💡 Crie os melhores ângulos criativos para quebrar a dor/objeção ("${personaPain}") e posicionar o diferencial ("${business.differential}").`}
 
 REGRAS OBRIGATÓRIAS DE ESTRUTURA PARA CADA PAUTA:
 1. mote: Resumo estratégico em 1 linha sobre a intenção do conteúdo e o objetivo de negócio.

@@ -110,6 +110,15 @@ export const GeneratePitchesRequestSchema = z.object({
     targetAudience: z.string().trim().max(300).optional(),
     keyPain: z.string().trim().max(500).optional(),
     differential: z.string().trim().max(500).optional(),
+    mainProduct: z.string().trim().max(300).optional(),
+    forbiddenWords: z.string().trim().max(500).optional(),
+    personaDetails: z.object({
+      name: z.string().trim().max(100).optional(),
+      role: z.string().trim().max(200).optional(),
+      keyPain: z.string().trim().max(500).optional(),
+      desire: z.string().trim().max(500).optional(),
+      objection: z.string().trim().max(500).optional()
+    }).optional()
   }).optional()
 });
 
@@ -168,6 +177,15 @@ export const RefinePitchRequestSchema = z.object({
     targetAudience: z.string().trim().max(300).optional(),
     keyPain: z.string().trim().max(500).optional(),
     differential: z.string().trim().max(500).optional(),
+    mainProduct: z.string().trim().max(300).optional(),
+    forbiddenWords: z.string().trim().max(500).optional(),
+    personaDetails: z.object({
+      name: z.string().trim().max(100).optional(),
+      role: z.string().trim().max(200).optional(),
+      keyPain: z.string().trim().max(500).optional(),
+      desire: z.string().trim().max(500).optional(),
+      objection: z.string().trim().max(500).optional()
+    }).optional()
   }).optional()
 });
 

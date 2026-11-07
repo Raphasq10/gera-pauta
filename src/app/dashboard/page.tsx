@@ -32,7 +32,13 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
-  Calendar
+  Calendar,
+  Users,
+  Plus,
+  Pencil,
+  ShieldAlert,
+  Target,
+  Heart
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -53,14 +59,29 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<string>("generator");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Contexto do Negócio (Memória de Marca)
+  // Contexto do Negócio (Memória de Marca Turbinada)
   const [companyName, setCompanyName] = useState("Clínica Sorriso & Bem-Estar");
   const [niche, setNiche] = useState("Odontologia Estética");
   const [toneOfVoice, setToneOfVoice] = useState("Profissional, acolhedor e empático");
   const [keyPain, setKeyPain] = useState("Medo de procedimentos dolorosos e tratamentos artificiais");
   const [differential, setDifferential] = useState("Tecnologia a laser sem dor e atendimento humanizado pontual");
+  const [mainProduct, setMainProduct] = useState("Clareamento a Laser sem sensibilidade e Lentes em Resina");
+  const [forbiddenWords, setForbiddenWords] = useState("Não falar que é o mais barato da cidade, não prometer cura milagrosa, evitar jargões médicos em latim");
+
+  // Gestão de Personas / Públicos-Alvo
   const [personas, setPersonas] = useState<PersonaData[]>(INITIAL_PERSONAS);
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>(INITIAL_PERSONAS[0].id);
+  const [isPersonaModalOpen, setIsPersonaModalOpen] = useState<boolean>(false);
+  const [editingPersonaId, setEditingPersonaId] = useState<string | null>(null);
+  const [personaForm, setPersonaForm] = useState({
+    name: "",
+    role: "",
+    category: "estetica",
+    keyPain: "",
+    desire: "",
+    objection: "",
+    tone: "Profissional, acolhedor e empático"
+  });
 
   // Parâmetros de Geração do Concorrente (HubSpot & QuillBot inspirados)
   const [channel, setChannel] = useState<"instagram" | "linkedin" | "whatsapp" | "tiktok">("instagram");
@@ -151,6 +172,7 @@ export default function DashboardPage() {
     }
 
     setIsRefining(true);
+    const activePersona = personas.find((p) => p.id === selectedPersonaId) || personas[0];
     try {
       const res = await fetch("/api/refine", {
         method: "POST",
@@ -168,7 +190,16 @@ export default function DashboardPage() {
             niche,
             toneOfVoice,
             keyPain,
-            differential
+            differential,
+            mainProduct,
+            forbiddenWords,
+            personaDetails: {
+              name: activePersona.name,
+              role: activePersona.role,
+              keyPain: activePersona.keyPain,
+              desire: activePersona.desire,
+              objection: activePersona.objection
+            }
           }
         })
       });
@@ -312,6 +343,28 @@ export default function DashboardPage() {
           if (parsed.companyName) setCompanyName(parsed.companyName);
           if (parsed.niche) setNiche(parsed.niche);
           if (parsed.toneOfVoice) setToneOfVoice(parsed.toneOfVoice);
+          if (parsed.differential) setDifferential(parsed.differential);
+          if (parsed.mainProduct) setMainProduct(parsed.mainProduct);
+          if (parsed.forbiddenWords) setForbiddenWords(parsed.forbiddenWords);
+        } catch {}
+      }
+
+      const savedMainProduct = localStorage.getItem("gera_pauta_main_product");
+      if (savedMainProduct) setMainProduct(savedMainProduct);
+
+      const savedForbidden = localStorage.getItem("gera_pauta_forbidden_words");
+      if (savedForbidden) setForbiddenWords(savedForbidden);
+
+      const savedDifferential = localStorage.getItem("gera_pauta_differential");
+      if (savedDifferential) setDifferential(savedDifferential);
+
+      const savedPersonas = localStorage.getItem("gera_pauta_personas_v2");
+      if (savedPersonas) {
+        try {
+          const parsedPersonas = JSON.parse(savedPersonas);
+          if (Array.isArray(parsedPersonas) && parsedPersonas.length > 0) {
+            setPersonas(parsedPersonas);
+          }
         } catch {}
       }
 
@@ -533,6 +586,131 @@ export default function DashboardPage() {
     router.refresh();
   };
 
+  // Gestão de Memória de Marca (Perfil da Empresa Turbinado)
+  const handleSaveBrandContext = async () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("gera_pauta_company_name", companyName);
+      localStorage.setItem("gera_pauta_niche", niche);
+      localStorage.setItem("gera_pauta_tone_of_voice", toneOfVoice);
+      localStorage.setItem("gera_pauta_differential", differential);
+      localStorage.setItem("gera_pauta_main_product", mainProduct);
+      localStorage.setItem("gera_pauta_forbidden_words", forbiddenWords);
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("businesses").upsert({
+          user_id: user.id,
+          company_name: companyName,
+          niche,
+          tone_of_voice: toneOfVoice,
+          differential,
+          key_pain: keyPain,
+        });
+      }
+    } catch {}
+
+    toast.success("✨ Memória de marca e diretrizes salvas com sucesso!");
+  };
+
+  // Gestão de Personas (CRUD)
+  const handleOpenNewPersona = () => {
+    setEditingPersonaId(null);
+    setPersonaForm({
+      name: "",
+      role: "",
+      category: niche ? niche.toLowerCase() : "geral",
+      keyPain: "",
+      desire: "",
+      objection: "",
+      tone: toneOfVoice || "Profissional, acolhedor e empático"
+    });
+    setIsPersonaModalOpen(true);
+  };
+
+  const handleOpenEditPersona = (p: PersonaData) => {
+    setEditingPersonaId(p.id);
+    setPersonaForm({
+      name: p.name,
+      role: p.role,
+      category: p.category || "geral",
+      keyPain: p.keyPain,
+      desire: p.desire || "",
+      objection: p.objection || "",
+      tone: p.tone || toneOfVoice
+    });
+    setIsPersonaModalOpen(true);
+  };
+
+  const handleSavePersona = () => {
+    if (!personaForm.name.trim() || !personaForm.keyPain.trim()) {
+      toast.error("Por favor, preencha ao menos o nome da persona e a dor principal!");
+      return;
+    }
+
+    if (editingPersonaId) {
+      const updated = personas.map((p) =>
+        p.id === editingPersonaId
+          ? {
+              ...p,
+              name: personaForm.name.trim(),
+              role: personaForm.role.trim() || "Cliente Ideal",
+              category: personaForm.category.trim() || "geral",
+              keyPain: personaForm.keyPain.trim(),
+              desire: personaForm.desire.trim(),
+              objection: personaForm.objection.trim(),
+              tone: personaForm.tone.trim() || toneOfVoice
+            }
+          : p
+      );
+      setPersonas(updated);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("gera_pauta_personas_v2", JSON.stringify(updated));
+      }
+      toast.success(`✨ Persona "${personaForm.name}" atualizada com sucesso!`);
+    } else {
+      const newPersona: PersonaData = {
+        id: `persona-${Date.now()}`,
+        name: personaForm.name.trim(),
+        role: personaForm.role.trim() || "Cliente Ideal",
+        category: personaForm.category.trim() || "geral",
+        keyPain: personaForm.keyPain.trim(),
+        desire: personaForm.desire.trim(),
+        objection: personaForm.objection.trim(),
+        tone: personaForm.tone.trim() || toneOfVoice,
+        topInterests: [],
+        topGoals: [],
+        suggestedFormats: ["Carrossel Educativo", "Reels Curto", "Post de Autoridade"],
+        isCustom: true
+      };
+      const updated = [newPersona, ...personas];
+      setPersonas(updated);
+      setSelectedPersonaId(newPersona.id);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("gera_pauta_personas_v2", JSON.stringify(updated));
+      }
+      toast.success(`✨ Nova persona "${newPersona.name}" cadastrada com sucesso!`);
+    }
+    setIsPersonaModalOpen(false);
+  };
+
+  const handleDeletePersona = (personaId: string, personaName: string) => {
+    if (personas.length <= 1) {
+      toast.error("Você precisa manter ao menos uma persona cadastrada!");
+      return;
+    }
+    const filtered = personas.filter((p) => p.id !== personaId);
+    setPersonas(filtered);
+    if (selectedPersonaId === personaId) {
+      setSelectedPersonaId(filtered[0].id);
+    }
+    if (typeof window !== "undefined") {
+      localStorage.setItem("gera_pauta_personas_v2", JSON.stringify(filtered));
+    }
+    toast.success(`Persona "${personaName}" removida.`);
+  };
+
   const handleGenerate = async () => {
     setIsGenerating(true);
     const personaSelected = personas.find((p) => p.id === selectedPersonaId) || personas[0];
@@ -556,7 +734,16 @@ export default function DashboardPage() {
             niche,
             toneOfVoice,
             keyPain,
-            differential
+            differential,
+            mainProduct,
+            forbiddenWords,
+            personaDetails: {
+              name: personaSelected.name,
+              role: personaSelected.role,
+              keyPain: personaSelected.keyPain,
+              desire: personaSelected.desire,
+              objection: personaSelected.objection
+            }
           }
         })
       });
@@ -1056,10 +1243,19 @@ export default function DashboardPage() {
                 <Card className="bg-[#1E1B4B] border border-[#E5E5E5]/15 p-5 rounded-2xl shadow-xl space-y-4">
                   {/* Seletor de Persona do Negócio */}
                   <div className="space-y-1.5">
-                    <Label className="text-white text-xs flex items-center justify-between">
-                      <span>Persona / Cliente-Alvo</span>
-                      <span className="text-[#FFB020] text-[10px]">{currentPersona.category.toUpperCase()}</span>
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-white text-xs flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-[#FFB020]" />
+                        <span>Persona / Cliente-Alvo</span>
+                      </Label>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("profile")}
+                        className="text-[10px] text-[#FFB020] hover:underline flex items-center gap-1 cursor-pointer font-medium"
+                      >
+                        <Pencil className="w-2.5 h-2.5" /> Gerenciar Personas ({personas.length})
+                      </button>
+                    </div>
                     <div className="grid grid-cols-2 gap-1.5">
                       {personas.map((p) => (
                         <button
@@ -1079,14 +1275,36 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* Detalhe da Dor da Persona Selecionada */}
-                  <div className="p-3 bg-[#000000]/60 rounded-xl border border-[#E5E5E5]/10 text-xs">
-                    <span className="text-[#FFB020] font-bold text-[10px] uppercase block mb-1">
-                      ⚠️ Dor / Objeção que a IA vai quebrar:
-                    </span>
-                    <p className="text-[#E5E5E5]/90 text-[11px] leading-relaxed">
-                      "{currentPersona.keyPain}"
-                    </p>
+                  {/* Detalhe da Dor, Objeção e Desejo da Persona Selecionada */}
+                  <div className="p-3 bg-[#000000]/60 rounded-xl border border-[#E5E5E5]/10 text-xs space-y-2">
+                    <div>
+                      <span className="text-[#FFB020] font-bold text-[10px] uppercase flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3 text-[#FFB020]" /> Dor que a IA vai quebrar:
+                      </span>
+                      <p className="text-[#E5E5E5]/90 text-[11px] leading-relaxed mt-0.5">
+                        "{currentPersona.keyPain}"
+                      </p>
+                    </div>
+                    {currentPersona.objection && (
+                      <div className="pt-1.5 border-t border-[#E5E5E5]/10">
+                        <span className="text-amber-400 font-bold text-[10px] uppercase flex items-center gap-1">
+                          <ShieldAlert className="w-3 h-3 text-amber-400" /> Objeção Oculta da Persona:
+                        </span>
+                        <p className="text-slate-300 text-[11px] leading-relaxed mt-0.5">
+                          "{currentPersona.objection}"
+                        </p>
+                      </div>
+                    )}
+                    {currentPersona.desire && (
+                      <div className="pt-1.5 border-t border-[#E5E5E5]/10">
+                        <span className="text-emerald-400 font-bold text-[10px] uppercase flex items-center gap-1">
+                          <Heart className="w-3 h-3 text-emerald-400" /> Desejo / Transformação Buscada:
+                        </span>
+                        <p className="text-emerald-200/90 text-[11px] leading-relaxed mt-0.5">
+                          "{currentPersona.desire}"
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Seletor de Rede Social (Inspirado no HubSpot) */}
@@ -1396,15 +1614,22 @@ export default function DashboardPage() {
              ========================================================================= */}
           <TabsContent value="profile" className="space-y-6">
             <div className="max-w-4xl mx-auto space-y-6">
-              {/* Card 1: Configurações da Marca */}
-              <Card className="bg-[#1E1B4B] border border-[#E5E5E5]/15 p-6 rounded-2xl shadow-xl space-y-4">
+              {/* Card 1: Configurações da Marca Turbinada */}
+              <Card className="bg-[#1E1B4B] border border-[#E5E5E5]/15 p-6 rounded-2xl shadow-xl space-y-5">
                 <div className="flex items-center gap-3 border-b border-[#E5E5E5]/10 pb-4">
                   <div className="w-10 h-10 rounded-xl bg-[#000000] border border-[#FFB020]/40 flex items-center justify-center">
                     <Building2 className="w-5 h-5 text-[#FFB020]" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white">Configurações da Marca</h3>
-                    <p className="text-xs text-[#E5E5E5]/70">Estes dados orientam o motor de inteligência artificial em todas as pautas.</p>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      Memória de Marca & Contexto Estratégico
+                      <Badge className="bg-[#FFB020]/20 text-[#FFB020] border border-[#FFB020]/30 text-[10px]">
+                        Contexto Ativo
+                      </Badge>
+                    </h3>
+                    <p className="text-xs text-[#E5E5E5]/70">
+                      Estes dados alimentam diretamente o motor de inteligência artificial em todas as pautas geradas.
+                    </p>
                   </div>
                 </div>
 
@@ -1414,6 +1639,7 @@ export default function DashboardPage() {
                     <Input
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
+                      placeholder="Ex: Clínica Sorriso & Bem-Estar"
                       className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-10 focus-visible:ring-[#FFB020]"
                     />
                   </div>
@@ -1423,34 +1649,205 @@ export default function DashboardPage() {
                     <Input
                       value={niche}
                       onChange={(e) => setNiche(e.target.value)}
+                      placeholder="Ex: Odontologia Estética / Saúde"
                       className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-10 focus-visible:ring-[#FFB020]"
                     />
                   </div>
 
                   <div className="space-y-1 md:col-span-2">
+                    <Label className="text-xs text-white flex items-center justify-between">
+                      <span>Diferencial Competitivo Único (Proposta de Valor)</span>
+                      <span className="text-[10px] text-[#FFB020]">O que só a sua marca tem?</span>
+                    </Label>
+                    <Input
+                      value={differential}
+                      onChange={(e) => setDifferential(e.target.value)}
+                      placeholder="Ex: Tecnologia a laser sem dor e atendimento humanizado pontual"
+                      className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-10 focus-visible:ring-[#FFB020]"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-white">Serviço ou Oferta Carro-Chefe</Label>
+                    <Input
+                      value={mainProduct}
+                      onChange={(e) => setMainProduct(e.target.value)}
+                      placeholder="Ex: Clareamento a Laser + Protocolo de Lentes"
+                      className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-10 focus-visible:ring-[#FFB020]"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
                     <Label className="text-xs text-white">Tom de Voz Padrão</Label>
                     <Input
                       value={toneOfVoice}
                       onChange={(e) => setToneOfVoice(e.target.value)}
+                      placeholder="Ex: Profissional, acolhedor, elegante e empático"
                       className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-10 focus-visible:ring-[#FFB020]"
+                    />
+                  </div>
+
+                  <div className="space-y-1 md:col-span-2">
+                    <Label className="text-xs text-rose-300 flex items-center gap-1.5 font-bold">
+                      <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                      <span>Diretrizes Negativas: O que a IA NUNCA deve falar (Termos e Clichês Proibidos)</span>
+                    </Label>
+                    <Textarea
+                      value={forbiddenWords}
+                      onChange={(e) => setForbiddenWords(e.target.value)}
+                      rows={2}
+                      placeholder="Ex: Não falar que é o mais barato da cidade, não prometer cura milagrosa, evitar jargões médicos em latim..."
+                      className="bg-[#000000]/60 border-rose-500/30 text-white text-xs focus-visible:ring-rose-500 rounded-xl"
                     />
                   </div>
                 </div>
 
                 <div className="pt-2 flex justify-end">
                   <Button
-                    onClick={() => {
-                      if (typeof window !== "undefined") {
-                        localStorage.setItem("gera_pauta_company_name", companyName);
-                        localStorage.setItem("gera_pauta_niche", niche);
-                        localStorage.setItem("gera_pauta_tone_of_voice", toneOfVoice);
-                      }
-                      toast.success("✨ Dados da empresa atualizados com sucesso!");
-                    }}
-                    className="bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-bold text-xs h-9 px-4 rounded-xl cursor-pointer"
+                    onClick={handleSaveBrandContext}
+                    className="bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-bold text-xs h-9 px-5 rounded-xl cursor-pointer shadow-lg shadow-[#FFB020]/20"
                   >
                     Salvar Alterações da Marca
                   </Button>
+                </div>
+              </Card>
+
+              {/* Card 2: Gestão Completa de Personas & Públicos-Alvo */}
+              <Card className="bg-[#1E1B4B] border border-[#E5E5E5]/15 p-6 rounded-2xl shadow-xl space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5E5E5]/10 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#000000] border border-[#FFB020]/40 flex items-center justify-center text-[#FFB020]">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        Personas & Públicos-Alvo ({personas.length})
+                      </h3>
+                      <p className="text-xs text-[#E5E5E5]/70">
+                        A IA usa as dores, desejos e objeções de cada persona para produzir copies com alta conversão.
+                      </p>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={handleOpenNewPersona}
+                    className="bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-bold text-xs h-9 px-4 rounded-xl cursor-pointer flex items-center gap-1.5 shrink-0"
+                  >
+                    <Plus className="w-4 h-4" /> Nova Persona
+                  </Button>
+                </div>
+
+                {/* Grade de Personas Cadastradas */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {personas.map((p) => {
+                    const isSelected = selectedPersonaId === p.id;
+                    return (
+                      <div
+                        key={p.id}
+                        className={`p-4 rounded-xl border transition-all space-y-3 bg-[#000000]/50 ${
+                          isSelected
+                            ? "border-[#FFB020] shadow-md shadow-[#FFB020]/10"
+                            : "border-[#E5E5E5]/10 hover:border-[#FFB020]/40"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-sm font-bold text-white">{p.name}</h4>
+                              <Badge className="bg-[#1E1B4B] text-[#FFB020] border border-[#FFB020]/30 text-[9px] uppercase font-bold">
+                                {p.category || "Geral"}
+                              </Badge>
+                              {isSelected && (
+                                <Badge className="bg-[#FFB020] text-black text-[9px] font-extrabold uppercase">
+                                  Ativa no Gerador
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-[#E5E5E5]/70 mt-0.5">{p.role}</p>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              onClick={() => handleOpenEditPersona(p)}
+                              variant="ghost"
+                              size="sm"
+                              className="text-[#E5E5E5]/70 hover:text-[#FFB020] hover:bg-[#000000] h-7 w-7 p-0 rounded-lg cursor-pointer"
+                              title="Editar persona"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              onClick={() => handleDeletePersona(p.id, p.name)}
+                              variant="ghost"
+                              size="sm"
+                              className="text-[#E5E5E5]/70 hover:text-rose-400 hover:bg-[#000000] h-7 w-7 p-0 rounded-lg cursor-pointer"
+                              title="Excluir persona"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Detalhes Estratégicos de Copywriting da Persona */}
+                        <div className="space-y-1.5 text-xs bg-[#0D0C1D]/60 p-3 rounded-lg border border-[#E5E5E5]/10">
+                          <div>
+                            <span className="text-[#FFB020] font-bold text-[10px] uppercase flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3 text-[#FFB020]" /> Dor Principal:
+                            </span>
+                            <p className="text-[#E5E5E5]/90 text-[11px] leading-relaxed mt-0.5">
+                              "{p.keyPain}"
+                            </p>
+                          </div>
+
+                          {p.desire && (
+                            <div className="pt-1 border-t border-[#E5E5E5]/10">
+                              <span className="text-emerald-400 font-bold text-[10px] uppercase flex items-center gap-1">
+                                <Heart className="w-3 h-3 text-emerald-400" /> Desejo / Transformação:
+                              </span>
+                              <p className="text-emerald-200/90 text-[11px] leading-relaxed mt-0.5">
+                                "{p.desire}"
+                              </p>
+                            </div>
+                          )}
+
+                          {p.objection && (
+                            <div className="pt-1 border-t border-[#E5E5E5]/10">
+                              <span className="text-amber-400 font-bold text-[10px] uppercase flex items-center gap-1">
+                                <ShieldAlert className="w-3 h-3 text-amber-400" /> Objeção Oculta:
+                              </span>
+                              <p className="text-slate-300 text-[11px] leading-relaxed mt-0.5">
+                                "{p.objection}"
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="pt-1 flex items-center justify-between">
+                          {!isSelected ? (
+                            <Button
+                              onClick={() => {
+                                setSelectedPersonaId(p.id);
+                                setActiveTab("generator");
+                                toast.success(`Persona "${p.name}" selecionada! Redirecionando para o Gerador.`);
+                              }}
+                              variant="outline"
+                              size="sm"
+                              className="text-[11px] h-7 border-[#E5E5E5]/20 hover:border-[#FFB020] text-white hover:text-[#FFB020] bg-[#000000]/60 cursor-pointer"
+                            >
+                              Usar no Gerador 🚀
+                            </Button>
+                          ) : (
+                            <span className="text-[11px] text-[#FFB020] font-medium flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Pronta no Gerador
+                            </span>
+                          )}
+                          <span className="text-[10px] text-[#E5E5E5]/40 italic">
+                            Tom: {p.tone?.split(",")[0] || "Profissional"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </Card>
 
@@ -1977,6 +2374,135 @@ export default function DashboardPage() {
                 >
                   ⚙️ Restaurar 5 pautas para continuar testando (Modo Desenvolvedor)
                 </button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* =========================================================================
+            MODAL DE CADASTRO / EDIÇÃO DE PERSONA (COPYWRITING ESTRATÉGICO)
+           ========================================================================= */}
+        <Dialog open={isPersonaModalOpen} onOpenChange={setIsPersonaModalOpen}>
+          <DialogContent className="bg-[#1E1B4B] border border-[#FFB020]/50 text-white max-w-lg p-6 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[#000000] border border-[#FFB020]/40 flex items-center justify-center text-[#FFB020]">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div>
+                  <DialogTitle className="text-base font-bold text-white">
+                    {editingPersonaId ? "Editar Persona / Cliente-Alvo" : "Nova Persona / Cliente-Alvo"}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-[#E5E5E5]/70">
+                    Defina as dores e desejos reais para a IA criar copies cirúrgicas e persuasivas.
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="space-y-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-white">Nome ou Arquétipo da Persona *</Label>
+                  <Input
+                    placeholder="Ex: Mariana ou Noiva Ansiosa"
+                    value={personaForm.name}
+                    onChange={(e) => setPersonaForm({ ...personaForm, name: e.target.value })}
+                    className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-9 focus-visible:ring-[#FFB020]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs text-white">Nicho / Categoria</Label>
+                  <Input
+                    placeholder="Ex: Estética, Gastronomia, Saúde..."
+                    value={personaForm.category}
+                    onChange={(e) => setPersonaForm({ ...personaForm, category: e.target.value })}
+                    className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-9 focus-visible:ring-[#FFB020]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-white">Perfil Demográfico & Comportamento</Label>
+                <Input
+                  placeholder="Ex: Mulher de 35 anos, empresária, sem tempo e buscando procedimentos rápidos"
+                  value={personaForm.role}
+                  onChange={(e) => setPersonaForm({ ...personaForm, role: e.target.value })}
+                  className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-9 focus-visible:ring-[#FFB020]"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-[#FFB020] font-bold flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3 text-[#FFB020]" />
+                  <span>Dor Principal / Frustração que tira o sono dela *</span>
+                </Label>
+                <Textarea
+                  placeholder="Ex: Medo de dor durante o procedimento e receio de ficar com resultado artificial..."
+                  value={personaForm.keyPain}
+                  onChange={(e) => setPersonaForm({ ...personaForm, keyPain: e.target.value })}
+                  rows={2}
+                  className="bg-[#000000]/60 border-[#FFB020]/30 text-white text-xs focus-visible:ring-[#FFB020] rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-emerald-400 font-bold flex items-center gap-1">
+                  <Heart className="w-3 h-3 text-emerald-400" />
+                  <span>Maior Desejo / Transformação que ela busca alcançar</span>
+                </Label>
+                <Textarea
+                  placeholder="Ex: Ter um sorriso brilhante para fotos do casamento sem sentir sensibilidade..."
+                  value={personaForm.desire}
+                  onChange={(e) => setPersonaForm({ ...personaForm, desire: e.target.value })}
+                  rows={2}
+                  className="bg-[#000000]/60 border-emerald-500/30 text-white text-xs focus-visible:ring-emerald-500 rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-amber-400 font-bold flex items-center gap-1">
+                  <ShieldAlert className="w-3 h-3 text-amber-400" />
+                  <span>Objeção Oculta que a IA DEVE quebrar na copy</span>
+                </Label>
+                <Textarea
+                  placeholder="Ex: Acha que vai doer demais, que vai ficar artificial ou que é caro demais..."
+                  value={personaForm.objection}
+                  onChange={(e) => setPersonaForm({ ...personaForm, objection: e.target.value })}
+                  rows={2}
+                  className="bg-[#000000]/60 border-amber-500/30 text-white text-xs focus-visible:ring-amber-500 rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-white">Tom de Voz Específico para esta Persona</Label>
+                <Input
+                  placeholder="Ex: Acolhedor, elegante, empático e autoridade científica simples"
+                  value={personaForm.tone}
+                  onChange={(e) => setPersonaForm({ ...personaForm, tone: e.target.value })}
+                  className="bg-[#000000]/60 border-[#E5E5E5]/20 text-white text-xs h-9 focus-visible:ring-[#FFB020]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E5E5E5]/10">
+                <Button
+                  type="button"
+                  onClick={() => setIsPersonaModalOpen(false)}
+                  variant="outline"
+                  size="sm"
+                  className="border-[#E5E5E5]/20 text-white hover:bg-[#000000]/60 text-xs h-9 px-4 cursor-pointer"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSavePersona}
+                  size="sm"
+                  className="bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-bold text-xs h-9 px-5 rounded-xl cursor-pointer shadow-lg shadow-[#FFB020]/20"
+                >
+                  {editingPersonaId ? "Salvar Alterações" : "Cadastrar Persona"}
+                </Button>
               </div>
             </div>
           </DialogContent>
