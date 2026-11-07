@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const inter = Inter({
@@ -29,13 +30,39 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${inter.variable} font-sans h-full antialiased dark`}
     >
+      <head>
+        <Script
+          id="gtm-base"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+            `,
+          }}
+        />
+        <Script
+          id="gtm-script"
+          strategy="afterInteractive"
+          src="https://www.googletagmanager.com/gtm.js?id=GTM-M7R2WLZ3"
+        />
+      </head>
       <body
         suppressHydrationWarning
         className="min-h-full flex flex-col font-sans bg-[#0D0C1D] text-slate-100"
       >
+        {/* Google Tag Manager (noscript fallback) */}
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-M7R2WLZ3"
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          />
+        </noscript>
         {children}
       </body>
     </html>
   );
 }
-

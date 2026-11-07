@@ -55,6 +55,12 @@ Permite que o usuário cadastre múltiplos perfis de clientes, sincronizados em 
 
 ## ⏱️ 3. Linha do Tempo e Histórico de Entregas (com Data e Hora)
 
+### 📅 07/11/2026 — 15:20: Instalação do Google Tag Manager (GTM-M7R2WLZ3)
+* **O que foi feito:**
+  - Instalação oficial do container **GTM-M7R2WLZ3** em [`src/app/layout.tsx`](file:///c:/xampp/htdocs/gerador-pauta/src/app/layout.tsx) utilizando a biblioteca nativa `next/script` com estratégia `afterInteractive` (não bloqueia a renderização nem o LCP).
+  - Configuração do `window.dataLayer` e função global `gtag`.
+  - Inclusão do fallback `<noscript>` com iframe para rastreamento de acessos mesmo sem execução de JavaScript.
+
 ### 📅 07/11/2026 — 15:15: Otimização Radical de Velocidade da IA (Latência Reduzida de ~20s para < 2.5s)
 * **Diagnóstico da Causa Raiz:**
   - O motor `src/lib/gemini.ts` mantinha modelos no início da fila de requisições que estavam instáveis ou apresentando status 503 (`gemini-3.8-flash`) ou 404, gerando atraso sequencial cumulativo de 15 a 20+ segundos antes de atingir um modelo ativo.
