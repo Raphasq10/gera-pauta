@@ -24,7 +24,7 @@ export async function GET() {
 
     const { data: business, error } = await supabase
       .from("businesses")
-      .select("id, company_name, niche, tone_of_voice, key_pain, differential, created_at, updated_at")
+      .select("id, company_name, niche, tone_of_voice, key_pain, differential, main_product, forbidden_words, custom_personas, created_at, updated_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -44,6 +44,9 @@ export async function GET() {
         toneOfVoice: business.tone_of_voice,
         keyPain: business.key_pain,
         differential: business.differential,
+        mainProduct: business.main_product,
+        forbiddenWords: business.forbidden_words,
+        customPersonas: business.custom_personas,
       } : null,
     });
   } catch (err: any) {
@@ -76,7 +79,7 @@ export async function POST(request: Request) {
     }
 
     // 3. Proteção contra Mass Assignment: extrai estritamente os campos permitidos
-    const { companyName, niche, toneOfVoice, targetAudience, keyPain, differential } = parseResult.data;
+    const { companyName, niche, toneOfVoice, targetAudience, keyPain, differential, mainProduct, forbiddenWords, customPersonas } = parseResult.data;
 
     // Concatena de forma rica a persona no key_pain caso público-alvo tenha sido especificado
     const enrichedKeyPain = targetAudience 
@@ -93,6 +96,9 @@ export async function POST(request: Request) {
         tone_of_voice: toneOfVoice,
         key_pain: enrichedKeyPain,
         differential: differential,
+        main_product: mainProduct || null,
+        forbidden_words: forbiddenWords || null,
+        custom_personas: customPersonas || null,
       })
       .select()
       .single();

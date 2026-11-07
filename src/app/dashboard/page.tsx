@@ -281,6 +281,11 @@ export default function DashboardPage() {
             if (business.tone_of_voice) setToneOfVoice(business.tone_of_voice);
             if (business.key_pain) setKeyPain(business.key_pain);
             if (business.differential) setDifferential(business.differential);
+            if (business.main_product) setMainProduct(business.main_product);
+            if (business.forbidden_words) setForbiddenWords(business.forbidden_words);
+            if (Array.isArray(business.custom_personas) && business.custom_personas.length > 0) {
+              setPersonas(business.custom_personas);
+            }
           }
 
           // 3. Carrega Histórico de Pautas do Banco
@@ -600,18 +605,44 @@ export default function DashboardPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await supabase.from("businesses").upsert({
+        await supabase.from("businesses").insert({
           user_id: user.id,
           company_name: companyName,
           niche,
           tone_of_voice: toneOfVoice,
           differential,
           key_pain: keyPain,
+          main_product: mainProduct,
+          forbidden_words: forbiddenWords,
+          custom_personas: personas,
         });
       }
-    } catch {}
+    } catch (err) {
+      console.warn("Erro ao salvar no Supabase:", err);
+    }
 
     toast.success("✨ Memória de marca e diretrizes salvas com sucesso!");
+  };
+
+  const syncPersonasToSupabase = async (updatedPersonas: PersonaData[]) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("businesses").insert({
+          user_id: user.id,
+          company_name: companyName,
+          niche,
+          tone_of_voice: toneOfVoice,
+          differential,
+          key_pain: keyPain,
+          main_product: mainProduct,
+          forbidden_words: forbiddenWords,
+          custom_personas: updatedPersonas,
+        });
+      }
+    } catch (e) {
+      console.warn("Erro ao sincronizar personas na nuvem:", e);
+    }
   };
 
   // Gestão de Personas (CRUD)
@@ -668,6 +699,7 @@ export default function DashboardPage() {
       if (typeof window !== "undefined") {
         localStorage.setItem("gera_pauta_personas_v2", JSON.stringify(updated));
       }
+      syncPersonasToSupabase(updated);
       toast.success(`✨ Persona "${personaForm.name}" atualizada com sucesso!`);
     } else {
       const newPersona: PersonaData = {
@@ -690,6 +722,7 @@ export default function DashboardPage() {
       if (typeof window !== "undefined") {
         localStorage.setItem("gera_pauta_personas_v2", JSON.stringify(updated));
       }
+      syncPersonasToSupabase(updated);
       toast.success(`✨ Nova persona "${newPersona.name}" cadastrada com sucesso!`);
     }
     setIsPersonaModalOpen(false);
@@ -708,6 +741,7 @@ export default function DashboardPage() {
     if (typeof window !== "undefined") {
       localStorage.setItem("gera_pauta_personas_v2", JSON.stringify(filtered));
     }
+    syncPersonasToSupabase(filtered);
     toast.success(`Persona "${personaName}" removida.`);
   };
 

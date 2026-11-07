@@ -50,6 +50,10 @@ export const businessProfileSchema = z.object({
     .trim()
     .min(5, "O diferencial competitivo deve ter pelo menos 5 caracteres.")
     .max(500, "O diferencial não pode ultrapassar 500 caracteres."),
+  
+  mainProduct: z.string().trim().max(300).optional(),
+  forbiddenWords: z.string().trim().max(500).optional(),
+  customPersonas: z.any().optional(),
 });
 
 export type BusinessProfileInput = z.infer<typeof businessProfileSchema>;

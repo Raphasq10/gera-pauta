@@ -273,8 +273,8 @@ export async function POST(req: NextRequest) {
             targetAudience: business.targetAudience,
             keyPain: dbBusiness.key_pain || business.keyPain,
             differential: dbBusiness.differential || business.differential,
-            mainProduct: business.mainProduct,
-            forbiddenWords: business.forbiddenWords,
+            mainProduct: business.mainProduct || dbBusiness.main_product || undefined,
+            forbiddenWords: business.forbiddenWords || dbBusiness.forbidden_words || undefined,
             personaDetails: business.personaDetails,
           };
         }
