@@ -22,6 +22,7 @@ PROMPT*.md
 AGENTS.md
 docs/*
 !docs/tests/
+!docs/REGISTRO_DE_EVOLUCAO_E_ESTRUTURAS.md
 
 # Cache e builds do Next.js / Vercel
 .next/
