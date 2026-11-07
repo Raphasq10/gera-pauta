@@ -32,13 +32,14 @@ export async function GET() {
     let isPro = profile?.is_pro === true;
     let isCanceled = false;
 
-    // Sincroniza em tempo real com a Stripe caso o usuário tenha cancelado pelo portal externo
-    if (isPro && profile?.stripe_customer_id) {
+    // Sincroniza em tempo real com a Stripe o status exato da assinatura
+    if (profile?.stripe_customer_id) {
       try {
         const stripe = getStripe();
         if (stripe) {
           const subs = await stripe.subscriptions.list({
             customer: profile.stripe_customer_id,
+            status: "all",
             limit: 1
           });
 
@@ -47,10 +48,15 @@ export async function GET() {
             if (currentSub.status === "canceled" || currentSub.cancel_at_period_end) {
               isPro = false;
               isCanceled = true;
-              await supabase
-                .from("profiles")
-                .update({ is_pro: false })
-                .eq("id", user.id);
+              if (profile.is_pro) {
+                await supabase
+                  .from("profiles")
+                  .update({ is_pro: false })
+                  .eq("id", user.id);
+              }
+            } else if (currentSub.status === "active" && !currentSub.cancel_at_period_end) {
+              isPro = true;
+              isCanceled = false;
             }
           }
         }

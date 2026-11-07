@@ -310,6 +310,15 @@ export default function DashboardPage() {
 
       const savedKey = localStorage.getItem("gera_pauta_byok_key");
       if (savedKey) setUserApiKey(savedKey);
+
+      // Sincroniza dados automaticamente sempre que o usuário retornar à aba
+      const handleFocus = () => {
+        loadSupabaseData();
+      };
+      window.addEventListener("focus", handleFocus);
+      return () => {
+        window.removeEventListener("focus", handleFocus);
+      };
     }
   }, []);
 
