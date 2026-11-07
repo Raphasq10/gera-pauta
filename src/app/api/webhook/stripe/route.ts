@@ -81,17 +81,25 @@ export async function POST(req: Request) {
         break;
       }
 
-      case "customer.subscription.deleted": {
+      case "customer.subscription.deleted":
+      case "customer.subscription.updated": {
         const subscription = event.data.object;
         const customerId = subscription.customer;
+        const isCanceled = subscription.status === "canceled" || subscription.cancel_at_period_end === true;
 
-        console.log(`[STRIPE_WEBHOOK] Assinatura cancelada para cliente ${customerId}`);
-        // Se houver coluna customerId ou metadata
-        if (subscription.metadata?.userId) {
-          await supabase
-            .from("profiles")
-            .update({ is_pro: false })
-            .eq("id", subscription.metadata.userId);
+        if (isCanceled) {
+          console.log(`[STRIPE_WEBHOOK] Assinatura cancelada ou agendada para encerrar do cliente ${customerId}`);
+          if (subscription.metadata?.userId) {
+            await supabase
+              .from("profiles")
+              .update({ is_pro: false })
+              .eq("id", subscription.metadata.userId);
+          } else if (customerId) {
+            await supabase
+              .from("profiles")
+              .update({ is_pro: false })
+              .eq("stripe_customer_id", customerId);
+          }
         }
         break;
       }

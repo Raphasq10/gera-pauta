@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { MAX_FREE_PITCHES, ResetQuotaRequestSchema } from "@/lib/schemas/quota";
+import { getStripe } from "@/lib/stripe";
 
 /**
  * ============================================================================
@@ -23,12 +24,41 @@ export async function GET() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("used_pitches, is_pro, user_api_key")
+      .select("used_pitches, is_pro, user_api_key, stripe_customer_id")
       .eq("id", user.id)
       .maybeSingle();
 
-    const usedPitches = profile?.used_pitches ?? 0;
-    const isPro = profile?.is_pro === true;
+    let usedPitches = profile?.used_pitches ?? 0;
+    let isPro = profile?.is_pro === true;
+    let isCanceled = false;
+
+    // Sincroniza em tempo real com a Stripe caso o usuário tenha cancelado pelo portal externo
+    if (isPro && profile?.stripe_customer_id) {
+      try {
+        const stripe = getStripe();
+        if (stripe) {
+          const subs = await stripe.subscriptions.list({
+            customer: profile.stripe_customer_id,
+            limit: 1
+          });
+
+          if (subs.data.length > 0) {
+            const currentSub = subs.data[0];
+            if (currentSub.status === "canceled" || currentSub.cancel_at_period_end) {
+              isPro = false;
+              isCanceled = true;
+              await supabase
+                .from("profiles")
+                .update({ is_pro: false })
+                .eq("id", user.id);
+            }
+          }
+        }
+      } catch (stripeSyncErr) {
+        console.warn("[QUOTA_STRIPE_SYNC_WARN]:", stripeSyncErr);
+      }
+    }
+
     const hasByok = Boolean(profile?.user_api_key && profile.user_api_key.trim());
     const remainingPitches = isPro || hasByok ? 999999 : Math.max(0, MAX_FREE_PITCHES - usedPitches);
     const canGenerate = isPro || hasByok || usedPitches < MAX_FREE_PITCHES;
@@ -39,6 +69,7 @@ export async function GET() {
         usedPitches,
         maxFreePitches: MAX_FREE_PITCHES,
         isPro,
+        isCanceled,
         hasByok,
         canGenerate,
         remainingPitches

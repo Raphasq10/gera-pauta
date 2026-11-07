@@ -79,10 +79,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Cria a Sessão segura do Portal do Cliente da Stripe
+    // 2. Cria a Sessão segura do Portal do Cliente da Stripe redirecionando para a aba de assinaturas
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${origin}/dashboard`
+      return_url: `${origin}/dashboard?tab=billing&portal_return=true`
     });
 
     return NextResponse.json({

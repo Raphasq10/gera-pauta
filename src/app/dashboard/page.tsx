@@ -79,6 +79,7 @@ export default function DashboardPage() {
   const [userApiKey, setUserApiKey] = useState<string>("");
   const [userId, setUserId] = useState<string | null>(null);
   const [isPro, setIsPro] = useState<boolean>(false);
+  const [hasCanceledSub, setHasCanceledSub] = useState<boolean>(false);
   const [hasByok, setHasByok] = useState<boolean>(false);
   const [isQuotaModalOpen, setIsQuotaModalOpen] = useState<boolean>(false);
 
@@ -129,6 +130,13 @@ export default function DashboardPage() {
 
   // Feature 3: Executa o refinamento / ajuste da pauta individual via API /api/refine
   const handleRefineSubmit = async (pitch: PitchContent) => {
+    // Validação de assinatura: assinante PRO ou chave própria necessária
+    if (!isPro && !hasByok && !userApiKey.trim()) {
+      toast.error("O ajuste e refinamento com IA é um recurso do Plano PRO. Suas pautas continuam salvas para cópia!");
+      setActiveTab("billing");
+      return;
+    }
+
     const cleanInstruction = refineInstruction.trim();
     if (!cleanInstruction || cleanInstruction.length < 3) {
       toast.error("Por favor, digite pelo menos 3 caracteres indicando o que deseja ajustar.");
@@ -207,7 +215,10 @@ export default function DashboardPage() {
             if (quotaRes.ok) {
               const quotaData = await quotaRes.json();
               if (quotaData.success && quotaData.quota) {
-                if (quotaData.quota.isPro) setIsPro(true);
+                setIsPro(quotaData.quota.isPro === true);
+                if (quotaData.quota.isCanceled) {
+                  setHasCanceledSub(true);
+                }
                 if (typeof quotaData.quota.usedPitches === "number") {
                   setUsedPitches(quotaData.quota.usedPitches);
                 }
@@ -277,6 +288,16 @@ export default function DashboardPage() {
     loadSupabaseData();
 
     if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("tab") === "billing") {
+        setActiveTab("billing");
+      }
+      if (params.get("portal_return") === "true") {
+        setActiveTab("billing");
+        toast.info("Retornando do gerenciamento da Stripe...");
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
       const savedContext = localStorage.getItem("gera_pauta_business_context");
       if (savedContext) {
         try {
@@ -473,6 +494,7 @@ export default function DashboardPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         setIsPro(false);
+        setHasCanceledSub(true);
         setIsCancelDialogOpen(false);
         toast.success(data.message || "Assinatura cancelada com sucesso!");
       } else {
@@ -1603,6 +1625,50 @@ export default function DashboardPage() {
               ) : (
                 /* ================= VISÃO PARA USUÁRIO GRÁTIS / DEGUSTAÇÃO ================= */
                 <>
+                  {/* Banner de Aviso Amigável: Assinatura Cancelada com Histórico Preservado */}
+                  {hasCanceledSub && (
+                    <Card className="bg-[#1E1B4B] border-2 border-[#FFB020]/60 p-6 rounded-2xl shadow-xl space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[#000000] border border-[#FFB020]/50 flex items-center justify-center text-xl shadow-md">
+                          ⚠️
+                        </div>
+                        <div>
+                          <h4 className="text-base font-bold text-white flex items-center gap-2">
+                            Assinatura Cancelada
+                            <Badge className="bg-[#FFB020]/20 text-[#FFB020] border border-[#FFB020]/40 text-[10px]">
+                              Sem novas cobranças
+                            </Badge>
+                          </h4>
+                          <p className="text-xs text-[#E5E5E5]/70">
+                            Sua assinatura foi cancelada. Não haverá novas cobranças no seu cartão.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div className="p-3.5 bg-[#000000]/40 rounded-xl border border-emerald-500/25 flex items-start gap-2.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                          <div>
+                            <strong className="text-white block mb-0.5">Seu Histórico Continua 100% Salvo</strong>
+                            <span className="text-[#E5E5E5]/70 leading-relaxed">
+                              Todas as suas pautas já criadas continuam disponíveis na <strong>Aba 2 (Histórico)</strong> para você consultar e copiar livremente quando quiser.
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="p-3.5 bg-[#000000]/40 rounded-xl border border-amber-500/25 flex items-start gap-2.5">
+                          <AlertCircle className="w-4 h-4 text-[#FFB020] shrink-0 mt-0.5" />
+                          <div>
+                            <strong className="text-white block mb-0.5">Criação & Refinador Pausados</strong>
+                            <span className="text-[#E5E5E5]/70 leading-relaxed">
+                              A geração de novas pautas e os ajustes com IA foram pausados. Deseja voltar a produzir conteúdo ilimitado? Basta assinar novamente abaixo!
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  )}
+
                   {/* Card de Controle de Quota */}
                   <Card className="bg-[#1E1B4B] border border-[#E5E5E5]/15 p-6 rounded-2xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="space-y-1">
