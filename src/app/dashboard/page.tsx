@@ -29,7 +29,9 @@ import {
   EyeOff,
   CheckCircle2,
   AlertCircle,
-  Trash2
+  Trash2,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -96,6 +98,10 @@ export default function DashboardPage() {
   const [isDisconnectingKey, setIsDisconnectingKey] = useState<boolean>(false);
   const [savedMaskedKey, setSavedMaskedKey] = useState<string | null>(null);
   const [testSuccessInfo, setTestSuccessInfo] = useState<{ latencyMs: number; model: string } | null>(null);
+
+  // Paginação da Galeria de Ideias Anteriores (A partir do 2º card)
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const cardsPerPage = 6;
 
   // Helper em Tempo Real: Aplica os toggles de Emojis e Hashtags instantaneamente na legenda
   const getFormattedLegenda = (rawLegenda: string, showEmojis: boolean, showHashtags: boolean): string => {
@@ -622,6 +628,289 @@ export default function DashboardPage() {
     }
   };
 
+  const latestPitch = pitches.length > 0 ? pitches[0] : null;
+  const olderPitches = pitches.length > 1 ? pitches.slice(1) : [];
+  const totalPages = Math.max(1, Math.ceil(olderPitches.length / cardsPerPage));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (validCurrentPage - 1) * cardsPerPage;
+  const currentOlderPitches = olderPitches.slice(startIndex, startIndex + cardsPerPage);
+
+  // Renderizador unificado e modular para Cards de Pauta (Destaque e Grade Dupla)
+  const renderPitchCard = (pitch: PitchContent, displayIndex: number, isFeatured: boolean) => {
+    const formattedLegenda = getFormattedLegenda(pitch.legenda, includeEmojis, includeHashtags);
+    const isRefiningThis = refiningPitchId === pitch.id;
+
+    return (
+      <Card
+        key={pitch.id}
+        className={`bg-[#1E1B4B] border transition-all space-y-4 relative overflow-hidden p-5 rounded-2xl shadow-xl flex flex-col justify-between ${
+          isFeatured
+            ? "border-[#FFB020]/70 shadow-2xl hover:border-[#FFB020]"
+            : "border-[#E5E5E5]/15 hover:border-[#FFB020]/50"
+        }`}
+      >
+        <div className="space-y-4">
+          {/* Indicador de Cabeçalho do Card */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E5E5]/10 pb-3">
+            <div className="flex items-center gap-2">
+              <span
+                className={`w-5 h-5 rounded-full border flex items-center justify-center text-[10px] font-bold ${
+                  isFeatured
+                    ? "bg-[#FFB020] text-black border-[#FFB020]"
+                    : "bg-[#000000] border-[#FFB020]/50 text-[#FFB020]"
+                }`}
+              >
+                {displayIndex}
+              </span>
+              <span className="text-xs font-bold text-white uppercase tracking-wider">
+                {pitch.formato || "Pauta Recomendada"}
+              </span>
+              {isFeatured && (
+                <Badge className="bg-[#FFB020] text-black font-extrabold text-[9px] uppercase tracking-wider">
+                  ⭐ Em Destaque
+                </Badge>
+              )}
+              {pitch.version && pitch.version > 1 && (
+                <Badge className="bg-[#FFB020]/20 text-[#FFB020] border border-[#FFB020]/40 text-[10px] flex items-center gap-1 font-bold">
+                  <Wand2 className="w-3 h-3" /> v{pitch.version} (Ajustada)
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Badge className="bg-[#000000] text-[#E5E5E5] border border-[#E5E5E5]/20 text-[10px] font-bold">
+                {pitch.channel?.toUpperCase() || channel.toUpperCase()}
+              </Badge>
+              {pitch.createdAt && (
+                <span className="text-[10px] text-[#E5E5E5]/50 hidden sm:inline">{pitch.createdAt}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Bloco 1: Mote Estratégico */}
+          <div className="p-3 bg-[#000000]/40 rounded-xl border border-[#E5E5E5]/10 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-[#FFB020] uppercase tracking-wider flex items-center gap-1">
+                🎯 Bloco 1: Mote Estratégico
+              </span>
+              <Button
+                onClick={() => handleCopyText("Mote Estratégico", pitch.mote)}
+                size="sm"
+                variant="ghost"
+                className="text-[10px] text-[#E5E5E5]/70 hover:text-white hover:bg-[#000000] h-6 px-2 shrink-0 cursor-pointer"
+              >
+                <Copy className="w-3 h-3 mr-1" /> Copiar Mote
+              </Button>
+            </div>
+            <p className="text-xs text-[#E5E5E5]/90 leading-relaxed font-medium">
+              {pitch.mote}
+            </p>
+          </div>
+
+          {/* Bloco 2: Duas Opções de Headline da Arte */}
+          <div className="p-3.5 bg-[#000000]/60 rounded-xl border border-[#E5E5E5]/10 space-y-2.5">
+            <span className="text-[10px] font-bold text-[#FFB020] uppercase tracking-wider block">
+              🖼️ Bloco 2: Duas Opções de Headline da Arte:
+            </span>
+
+            {/* Opção 1 */}
+            <div className="flex items-center justify-between gap-2 p-2.5 bg-[#1E1B4B]/70 rounded-lg border border-[#E5E5E5]/15">
+              <div className="flex-1 pr-2">
+                <span className="text-[10px] text-[#FFB020] font-bold block mb-0.5">
+                  Opção 1 (Pergunta Provocativa):
+                </span>
+                <p className="text-xs font-bold text-white leading-snug">{pitch.headlineArte}</p>
+              </div>
+              <Button
+                onClick={() => handleCopyText("Opção 1 da Headline", pitch.headlineArte)}
+                size="sm"
+                variant="ghost"
+                className="text-[10px] text-[#FFB020] hover:bg-[#000000] h-7 px-2 shrink-0 cursor-pointer"
+              >
+                <Copy className="w-3 h-3 mr-1" /> Copiar
+              </Button>
+            </div>
+
+            {/* Opção 2 */}
+            <div className="flex items-center justify-between gap-2 p-2.5 bg-[#1E1B4B]/40 rounded-lg border border-[#E5E5E5]/10">
+              <div className="flex-1 pr-2">
+                <span className="text-[10px] text-[#E5E5E5]/70 font-semibold block mb-0.5">
+                  Opção 2 (Afirmação de Impacto):
+                </span>
+                <p className="text-xs font-medium text-[#E5E5E5] leading-snug">
+                  {pitch.headlineArteAlt || `Opção B: ${pitch.headlineArte.replace(/[?!]/g, "")} — Vale a pena conferir?`}
+                </p>
+              </div>
+              <Button
+                onClick={() => handleCopyText("Opção 2 da Headline", pitch.headlineArteAlt || pitch.headlineArte)}
+                size="sm"
+                variant="ghost"
+                className="text-[10px] text-[#E5E5E5]/70 hover:text-white hover:bg-[#000000] h-7 px-2 shrink-0 cursor-pointer"
+              >
+                <Copy className="w-3 h-3 mr-1" /> Copiar
+              </Button>
+            </div>
+          </div>
+
+          {/* Bloco 3: Legenda Completa */}
+          <div className="p-3 bg-[#000000]/40 rounded-xl border border-[#E5E5E5]/10 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-[#FFB020] uppercase tracking-wider flex items-center gap-1">
+                ✍️ Bloco 3: Legenda Completa Pronta para Postar
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] text-[#E5E5E5]/50 hidden sm:inline">
+                  {includeEmojis ? "Emojis ativos" : "Sem emojis"} • {includeHashtags ? "Hashtags ativas" : "Sem hashtags"}
+                </span>
+                <Button
+                  onClick={() => handleCopyText("Legenda Completa", formattedLegenda)}
+                  size="sm"
+                  variant="ghost"
+                  className="text-[10px] text-[#FFB020] hover:bg-[#000000] h-6 px-2 shrink-0 cursor-pointer"
+                >
+                  <Copy className="w-3 h-3 mr-1" /> Copiar Legenda
+                </Button>
+              </div>
+            </div>
+            <div
+              className={`p-3 bg-[#000000]/60 rounded-xl border border-[#E5E5E5]/10 text-xs text-[#E5E5E5] whitespace-pre-line leading-relaxed overflow-y-auto font-sans ${
+                isFeatured ? "max-h-52" : "max-h-40"
+              }`}
+            >
+              {formattedLegenda}
+            </div>
+          </div>
+
+          {/* Bloco 4: Formato Recomendado */}
+          <div className="text-[11px] text-[#E5E5E5]/80 bg-[#000000]/40 p-3 rounded-xl border border-[#E5E5E5]/10 space-y-1">
+            <span className="text-[10px] font-bold text-[#FFB020] uppercase tracking-wider block">
+              📐 Bloco 4: Formato Recomendado & Estratégia de Conversão
+            </span>
+            <p className="text-xs">
+              <strong className="text-white">{pitch.formato}:</strong> {pitch.justificativaFormato}
+            </p>
+          </div>
+
+          {/* Painel Expansível de Refazer / Ajustar */}
+          {isRefiningThis && (
+            <div className="p-4 bg-[#000000] rounded-xl border border-[#FFB020]/50 space-y-3 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#FFB020] flex items-center gap-1.5">
+                  <Wand2 className="w-4 h-4" /> Refazer / Ajustar Pauta com IA
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRefiningPitchId(null);
+                    setRefineInstruction("");
+                  }}
+                  className="text-[#E5E5E5]/60 hover:text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <Textarea
+                maxLength={500}
+                rows={2}
+                placeholder="Diga o que você quer mudar (ex: 'Deixe mais persuasivo para agendamento', 'Transforme em formato carrossel mito vs verdade')..."
+                value={refineInstruction}
+                onChange={(e) => setRefineInstruction(e.target.value)}
+                className="bg-[#1E1B4B] border-[#E5E5E5]/20 text-white placeholder:text-[#E5E5E5]/40 text-xs resize-none focus-visible:ring-[#FFB020]"
+              />
+
+              {/* Chips rápidos */}
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  "🔥 Mais persuasivo para WhatsApp",
+                  "🎬 Transformar em roteiro de Reels",
+                  "😄 Tom descontraído e bem-humorado",
+                  "⚡ Mais curto e direto ao ponto"
+                ].map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => setRefineInstruction(chip)}
+                    className="text-[10px] bg-[#1E1B4B] border border-[#E5E5E5]/15 text-[#E5E5E5] px-2 py-1 rounded-md hover:border-[#FFB020] hover:text-[#FFB020] transition-colors cursor-pointer"
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setRefiningPitchId(null);
+                    setRefineInstruction("");
+                  }}
+                  className="text-xs text-[#E5E5E5]/70 hover:text-white h-8 cursor-pointer"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={isRefining}
+                  onClick={() => handleRefineSubmit(pitch)}
+                  className="bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-extrabold text-xs h-8 px-3 rounded-lg shadow-md cursor-pointer gap-1.5"
+                >
+                  {isRefining ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Ajustando com IA...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="w-3.5 h-3.5" /> Aplicar Ajuste
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Botões de Ação na Base do Card */}
+        <div className="pt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#E5E5E5]/10 mt-2">
+          <Button
+            onClick={() => {
+              if (isRefiningThis) {
+                setRefiningPitchId(null);
+              } else {
+                setRefiningPitchId(pitch.id);
+                setRefineInstruction("");
+              }
+            }}
+            variant="outline"
+            size="sm"
+            className="border-[#E5E5E5]/20 hover:border-[#FFB020] hover:text-[#FFB020] text-[#E5E5E5] text-xs h-9 px-3 rounded-xl cursor-pointer gap-1.5"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            {isRefiningThis ? "Fechar Ajuste" : "Refazer / Ajustar"}
+          </Button>
+
+          <Button
+            onClick={() => handleCopyFullPitch(pitch, pitch.headlineArte)}
+            size="sm"
+            className="bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-bold text-xs h-9 px-4 rounded-xl cursor-pointer gap-1.5 shadow-lg shadow-[#FFB020]/10"
+          >
+            {copiedId === pitch.id ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-black" /> Copiado!
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5" /> Copiar Pauta Completa
+              </>
+            )}
+          </Button>
+        </div>
+      </Card>
+    );
+  };
+
   const currentPersona = personas.find((p) => p.id === selectedPersonaId) || personas[0];
 
   return (
@@ -903,12 +1192,12 @@ export default function DashboardPage() {
                 </Card>
               </div>
 
-              {/* COLUNA DIREITA: RESULTADOS / CARDS DE PAUTA (7 COLUNAS) */}
+              {/* COLUNA DIREITA: RESULTADOS / CARD EM DESTAQUE (ÚLTIMA IDEIA GERADA) */}
               <div className="lg:col-span-7 space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-[#FFB020]" />
-                    Pautas Prontas para Publicação ({pitches.length})
+                    Última Pauta Gerada (Em Destaque)
                   </h3>
                   <span className="text-[11px] text-[#E5E5E5]/60">
                     Clique em copiar para enviar direto ao designer ou WhatsApp
@@ -918,19 +1207,17 @@ export default function DashboardPage() {
                 {/* Loading State com Skeletons */}
                 {isGenerating && (
                   <div className="space-y-4">
-                    {[1, 2].map((i) => (
-                      <Card key={i} className="bg-[#1E1B4B] border border-[#E5E5E5]/15 p-5 rounded-2xl space-y-3">
-                        <Skeleton className="h-4 w-1/3 bg-[#000000]/60" />
-                        <Skeleton className="h-6 w-3/4 bg-[#000000]/60" />
-                        <Skeleton className="h-16 w-full bg-[#000000]/60" />
-                        <Skeleton className="h-8 w-1/2 bg-[#000000]/60" />
-                      </Card>
-                    ))}
+                    <Card className="bg-[#1E1B4B] border border-[#FFB020]/30 p-5 rounded-2xl space-y-3">
+                      <Skeleton className="h-4 w-1/3 bg-[#000000]/60" />
+                      <Skeleton className="h-6 w-3/4 bg-[#000000]/60" />
+                      <Skeleton className="h-16 w-full bg-[#000000]/60" />
+                      <Skeleton className="h-8 w-1/2 bg-[#000000]/60" />
+                    </Card>
                   </div>
                 )}
 
-                {/* Lista de Cards de Conteúdo */}
-                {!isGenerating && pitches.length === 0 ? (
+                {/* Estado Sem Pauta ou Exibição do Card Mais Recente */}
+                {!isGenerating && !latestPitch ? (
                   <Card className="bg-[#1E1B4B] border border-[#E5E5E5]/15 p-12 text-center rounded-2xl">
                     <Sparkles className="w-8 h-8 text-[#FFB020] mx-auto mb-2 opacity-50" />
                     <h4 className="text-sm font-bold text-white">Nenhuma pauta gerada ainda</h4>
@@ -938,262 +1225,102 @@ export default function DashboardPage() {
                       Escolha uma persona ao lado e clique em "Gerar Pautas Estruturadas".
                     </p>
                   </Card>
-                ) : (
-                  <div className="space-y-4">
-                    {pitches.map((pitch, idx) => {
-                      const formattedLegenda = getFormattedLegenda(pitch.legenda, includeEmojis, includeHashtags);
-                      const isRefiningThis = refiningPitchId === pitch.id;
-
-                      return (
-                        <Card
-                          key={pitch.id || idx}
-                          className="bg-[#1E1B4B] border border-[#E5E5E5]/15 p-5 rounded-2xl shadow-xl hover:border-[#FFB020]/50 transition-all space-y-4 relative overflow-hidden"
-                        >
-                          {/* Indicador de Cabeçalho do Card */}
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E5E5]/10 pb-3">
-                            <div className="flex items-center gap-2">
-                              <span className="w-5 h-5 rounded-full bg-[#000000] border border-[#FFB020]/50 flex items-center justify-center text-[10px] font-bold text-[#FFB020]">
-                                {idx + 1}
-                              </span>
-                              <span className="text-xs font-bold text-white uppercase tracking-wider">
-                                {pitch.formato || "Pauta Recomendada"}
-                              </span>
-                              {pitch.version && pitch.version > 1 && (
-                                <Badge className="bg-[#FFB020]/20 text-[#FFB020] border border-[#FFB020]/40 text-[10px] flex items-center gap-1 font-bold">
-                                  <Wand2 className="w-3 h-3" /> v{pitch.version} (Ajustada)
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <Badge className="bg-[#000000] text-[#E5E5E5] border border-[#E5E5E5]/20 text-[10px] font-bold">
-                                {pitch.channel?.toUpperCase() || channel.toUpperCase()}
-                              </Badge>
-                            </div>
-                          </div>
-
-                          {/* Bloco 1: Mote Estratégico */}
-                          <div className="p-3 bg-[#000000]/40 rounded-xl border border-[#E5E5E5]/10 space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-bold text-[#FFB020] uppercase tracking-wider flex items-center gap-1">
-                                🎯 Bloco 1: Mote Estratégico
-                              </span>
-                              <Button
-                                onClick={() => handleCopyText("Mote Estratégico", pitch.mote)}
-                                size="sm"
-                                variant="ghost"
-                                className="text-[10px] text-[#E5E5E5]/70 hover:text-white hover:bg-[#000000] h-6 px-2 shrink-0 cursor-pointer"
-                              >
-                                <Copy className="w-3 h-3 mr-1" /> Copiar Mote
-                              </Button>
-                            </div>
-                            <p className="text-xs text-[#E5E5E5]/90 leading-relaxed font-medium">
-                              {pitch.mote}
-                            </p>
-                          </div>
-
-                          {/* Bloco 2: Duas Opções de Headline da Arte */}
-                          <div className="p-3.5 bg-[#000000]/60 rounded-xl border border-[#E5E5E5]/10 space-y-2.5">
-                            <span className="text-[10px] font-bold text-[#FFB020] uppercase tracking-wider block">
-                              🖼️ Bloco 2: Duas Opções de Headline da Arte (O que vai escrito na imagem/vídeo):
-                            </span>
-                            
-                            {/* Opção A: Pergunta Provocativa / Gancho de Curiosidade */}
-                            <div className="flex items-center justify-between gap-2 p-2.5 bg-[#1E1B4B]/70 rounded-lg border border-[#E5E5E5]/15">
-                              <div className="flex-1 pr-2">
-                                <span className="text-[10px] text-[#FFB020] font-bold block mb-0.5">
-                                  Opção 1 (Pergunta Provocativa / Gancho de Curiosidade):
-                                </span>
-                                <p className="text-xs font-bold text-white leading-snug">{pitch.headlineArte}</p>
-                              </div>
-                              <Button
-                                onClick={() => handleCopyText("Opção 1 da Headline", pitch.headlineArte)}
-                                size="sm"
-                                variant="ghost"
-                                className="text-[10px] text-[#FFB020] hover:bg-[#000000] h-7 px-2 shrink-0 cursor-pointer"
-                              >
-                                <Copy className="w-3 h-3 mr-1" /> Copiar
-                              </Button>
-                            </div>
-
-                            {/* Opção B: Afirmação de Impacto / Posicionamento */}
-                            <div className="flex items-center justify-between gap-2 p-2.5 bg-[#1E1B4B]/40 rounded-lg border border-[#E5E5E5]/10">
-                              <div className="flex-1 pr-2">
-                                <span className="text-[10px] text-[#E5E5E5]/70 font-semibold block mb-0.5">
-                                  Opção 2 (Afirmação de Impacto / Posicionamento de Autoridade):
-                                </span>
-                                <p className="text-xs font-medium text-[#E5E5E5] leading-snug">
-                                  {pitch.headlineArteAlt || `Opção B: ${pitch.headlineArte.replace(/[?!]/g, "")} — Vale a pena conferir?`}
-                                </p>
-                              </div>
-                              <Button
-                                onClick={() => handleCopyText("Opção 2 da Headline", pitch.headlineArteAlt || pitch.headlineArte)}
-                                size="sm"
-                                variant="ghost"
-                                className="text-[10px] text-[#E5E5E5]/70 hover:text-white hover:bg-[#000000] h-7 px-2 shrink-0 cursor-pointer"
-                              >
-                                <Copy className="w-3 h-3 mr-1" /> Copiar
-                              </Button>
-                            </div>
-                          </div>
-
-                          {/* Bloco 3: Legenda Completa com CTA Customizado */}
-                          <div className="p-3 bg-[#000000]/40 rounded-xl border border-[#E5E5E5]/10 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-bold text-[#FFB020] uppercase tracking-wider flex items-center gap-1">
-                                ✍️ Bloco 3: Legenda Completa Pronta para Postar
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[9px] text-[#E5E5E5]/50 hidden sm:inline">
-                                  {includeEmojis ? "Emojis ativos" : "Sem emojis"} • {includeHashtags ? "Hashtags ativas" : "Sem hashtags"}
-                                </span>
-                                <Button
-                                  onClick={() => handleCopyText("Legenda Completa", formattedLegenda)}
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-[10px] text-[#FFB020] hover:bg-[#000000] h-6 px-2 shrink-0 cursor-pointer"
-                                >
-                                  <Copy className="w-3 h-3 mr-1" /> Copiar Legenda
-                                </Button>
-                              </div>
-                            </div>
-                            <div className="p-3 bg-[#000000]/60 rounded-xl border border-[#E5E5E5]/10 text-xs text-[#E5E5E5] whitespace-pre-line leading-relaxed max-h-52 overflow-y-auto font-sans">
-                              {formattedLegenda}
-                            </div>
-                          </div>
-
-                          {/* Bloco 4: Formato e Justificativa Baseada em Dados */}
-                          <div className="text-[11px] text-[#E5E5E5]/80 bg-[#000000]/40 p-3 rounded-xl border border-[#E5E5E5]/10 space-y-1">
-                            <span className="text-[10px] font-bold text-[#FFB020] uppercase tracking-wider block">
-                              📐 Bloco 4: Formato Recomendado & Estratégia de Conversão
-                            </span>
-                            <p className="text-xs">
-                              <strong className="text-white">{pitch.formato}:</strong> {pitch.justificativaFormato}
-                            </p>
-                          </div>
-
-                          {/* Painel Expansível de Refazer / Ajustar Pauta (Feature 3) */}
-                          {isRefiningThis && (
-                            <div className="p-4 bg-[#000000] rounded-xl border border-[#FFB020]/50 space-y-3 animate-in fade-in duration-200">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-[#FFB020] flex items-center gap-1.5">
-                                  <Wand2 className="w-4 h-4" /> Refazer / Ajustar Pauta com IA
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setRefiningPitchId(null);
-                                    setRefineInstruction("");
-                                  }}
-                                  className="text-[#E5E5E5]/60 hover:text-white cursor-pointer"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                              </div>
-
-                              <Textarea
-                                maxLength={500}
-                                rows={2}
-                                placeholder="Diga o que você quer mudar (ex: 'Deixe mais humorístico', 'Mude para formato Reels de 15s', 'Foque no agendamento de quinta-feira')..."
-                                value={refineInstruction}
-                                onChange={(e) => setRefineInstruction(e.target.value)}
-                                className="bg-[#1E1B4B] border-[#E5E5E5]/20 text-white placeholder:text-[#E5E5E5]/40 text-xs resize-none focus-visible:ring-[#FFB020]"
-                              />
-
-                              {/* Chips rápidos de ajuste */}
-                              <div className="flex flex-wrap gap-1.5">
-                                {[
-                                  "🔥 Mais persuasivo para WhatsApp",
-                                  "🎬 Transformar em roteiro de Reels",
-                                  "😄 Tom descontraído e bem-humorado",
-                                  "⚡ Mais curto e direto ao ponto"
-                                ].map((chip) => (
-                                  <button
-                                    key={chip}
-                                    type="button"
-                                    onClick={() => setRefineInstruction(chip)}
-                                    className="text-[10px] bg-[#1E1B4B] border border-[#E5E5E5]/15 text-[#E5E5E5] px-2 py-1 rounded-md hover:border-[#FFB020] hover:text-[#FFB020] transition-colors cursor-pointer"
-                                  >
-                                    {chip}
-                                  </button>
-                                ))}
-                              </div>
-
-                              <div className="flex items-center justify-end gap-2 pt-1">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setRefiningPitchId(null);
-                                    setRefineInstruction("");
-                                  }}
-                                  className="text-xs text-[#E5E5E5]/70 hover:text-white h-8"
-                                >
-                                  Cancelar
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  disabled={isRefining}
-                                  onClick={() => handleRefineSubmit(pitch)}
-                                  className="bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-extrabold text-xs h-8 px-3 rounded-lg shadow-md cursor-pointer gap-1.5"
-                                >
-                                  {isRefining ? (
-                                    <>
-                                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Ajustando com IA...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Wand2 className="w-3.5 h-3.5" /> Aplicar Ajuste
-                                    </>
-                                  )}
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Botões de Ação na Base do Card */}
-                          <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[#E5E5E5]/10">
-                            <Button
-                              onClick={() => {
-                                if (isRefiningThis) {
-                                  setRefiningPitchId(null);
-                                } else {
-                                  setRefiningPitchId(pitch.id);
-                                  setRefineInstruction("");
-                                }
-                              }}
-                              variant="outline"
-                              size="sm"
-                              className="border-[#E5E5E5]/20 hover:border-[#FFB020] hover:text-[#FFB020] text-[#E5E5E5] text-xs h-9 px-3 rounded-xl cursor-pointer gap-1.5"
-                            >
-                              <SlidersHorizontal className="w-3.5 h-3.5" />
-                              {isRefiningThis ? "Fechar Ajuste" : "Refazer / Ajustar"}
-                            </Button>
-
-                            <Button
-                              onClick={() => handleCopyFullPitch(pitch, pitch.headlineArte)}
-                              size="sm"
-                              className="bg-[#FFB020] hover:bg-[#FFB020]/90 text-black font-bold text-xs h-9 px-4 rounded-xl cursor-pointer gap-1.5 shadow-lg shadow-[#FFB020]/10"
-                            >
-                              {copiedId === pitch.id ? (
-                                <>
-                                  <Check className="w-3.5 h-3.5 text-black" /> Copiado!
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="w-3.5 h-3.5" /> Copiar Pauta Completa
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
+                ) : !isGenerating && latestPitch ? (
+                  renderPitchCard(latestPitch, 1, true)
+                ) : null}
               </div>
             </div>
+
+            {/* =========================================================================
+                SEÇÃO INFERIOR: GALERIA DE IDEIAS ANTERIORES (GRADE DUPLA COM PAGINAÇÃO)
+               ========================================================================= */}
+            {olderPitches.length > 0 && (
+              <section id="gallery-section" className="pt-6 space-y-5 border-t border-[#2A2A3A]">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-[#1E1B4B]/70 p-4 rounded-2xl border border-[#E5E5E5]/10">
+                  <div className="space-y-0.5">
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <History className="w-4 h-4 text-[#FFB020]" />
+                      Ideias Anteriores Geradas ({olderPitches.length})
+                    </h3>
+                    <p className="text-xs text-[#E5E5E5]/70">
+                      Pautas criadas anteriormente organizadas em grade de 2 colunas com paginação de até 6 cards.
+                    </p>
+                  </div>
+
+                  {/* Contador de Página */}
+                  <div className="text-xs text-[#E5E5E5]/80 bg-[#000000]/60 px-3.5 py-1.5 rounded-full border border-[#E5E5E5]/15 font-mono">
+                    Página <strong className="text-[#FFB020]">{validCurrentPage}</strong> de <strong className="text-white">{totalPages}</strong>
+                  </div>
+                </div>
+
+                {/* Grade em 2 Colunas */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {currentOlderPitches.map((pitch, idx) =>
+                    renderPitchCard(pitch, startIndex + idx + 2, false)
+                  )}
+                </div>
+
+                {/* Controles de Paginação (6 cards por página) */}
+                {totalPages > 1 && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 p-4 bg-[#1E1B4B]/40 rounded-2xl border border-[#E5E5E5]/10">
+                    <span className="text-xs text-[#E5E5E5]/60 font-medium">
+                      Exibindo <strong>{startIndex + 1}</strong> a <strong>{Math.min(startIndex + cardsPerPage, olderPitches.length)}</strong> de <strong>{olderPitches.length}</strong> ideias anteriores
+                    </span>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={validCurrentPage === 1}
+                        onClick={() => {
+                          setCurrentPage(prev => Math.max(1, prev - 1));
+                          document.getElementById("gallery-section")?.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        className="border-[#E5E5E5]/20 bg-[#000000]/60 text-white hover:border-[#FFB020] hover:text-[#FFB020] text-xs h-8 px-3 rounded-lg cursor-pointer disabled:opacity-30"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5 mr-1" /> Anterior
+                      </Button>
+
+                      {/* Botões Numerados de Página */}
+                      {Array.from({ length: totalPages }).map((_, pIdx) => {
+                        const pageNum = pIdx + 1;
+                        const isActive = pageNum === validCurrentPage;
+                        return (
+                          <button
+                            key={pageNum}
+                            type="button"
+                            onClick={() => {
+                              setCurrentPage(pageNum);
+                              document.getElementById("gallery-section")?.scrollIntoView({ behavior: "smooth" });
+                            }}
+                            className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                              isActive
+                                ? "bg-[#FFB020] text-black shadow-md shadow-[#FFB020]/20 scale-105"
+                                : "bg-[#000000]/60 border border-[#E5E5E5]/15 text-[#E5E5E5] hover:border-[#FFB020] hover:text-[#FFB020]"
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={validCurrentPage === totalPages}
+                        onClick={() => {
+                          setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                          document.getElementById("gallery-section")?.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        className="border-[#E5E5E5]/20 bg-[#000000]/60 text-white hover:border-[#FFB020] hover:text-[#FFB020] text-xs h-8 px-3 rounded-lg cursor-pointer disabled:opacity-30"
+                      >
+                        Próxima <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
           </TabsContent>
 
           {/* =========================================================================
