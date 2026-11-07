@@ -17,16 +17,16 @@ function SuccessContent() {
   useEffect(() => {
     async function activatePro() {
       try {
-        const res = await fetch("/api/checkout/simulate", {
+        const res = await fetch("/api/checkout/confirm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ planId: "pro_monthly", paymentMethod: "credit_card" })
+          body: JSON.stringify({ sessionId })
         });
         if (res.ok) {
           setActivated(true);
         }
       } catch {
-        // Safe ignore
+        // Safe fallback
       } finally {
         setIsActivating(false);
       }

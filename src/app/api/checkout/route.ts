@@ -66,13 +66,24 @@ export async function POST(request: Request) {
               quantity: 1
             };
 
+        // Busca se o usuário já possui registro de cliente na Stripe para não duplicar
+        const { data: userProfile } = await supabase
+          .from("profiles")
+          .select("stripe_customer_id")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        const customerParams = userProfile?.stripe_customer_id
+          ? { customer: userProfile.stripe_customer_id }
+          : { customer_email: user.email };
+
         const session = await stripe.checkout.sessions.create({
           line_items: [lineItem],
           mode: "subscription",
           allow_promotion_codes: true,
           payment_method_collection: "if_required",
           client_reference_id: user.id,
-          customer_email: user.email,
+          ...customerParams,
           metadata: {
             userId: user.id,
             planId: plan.id
